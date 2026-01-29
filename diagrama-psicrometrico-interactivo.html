@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagrama psicrométrico interactivo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .pressure-config {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 2px solid #4CAF50;
+        }
+        .pressure-config h3 {
+            margin-top: 0;
+            color: #2c5530;
+        }
+        .pressure-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .pressure-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .pressure-input-group label {
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .pressure-input-group input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .pressure-input-group select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .pressure-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .pressure-buttons button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .pressure-buttons button:hover {
+            background-color: #45a049;
+        }
+        .pressure-display {
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+        }
+        .pressure-display strong {
+            color: #2c5530;
+        }
+        .main-content {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .canvas-container {
+            flex: 1;
+            min-width: 600px;
+            position: relative;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            cursor: crosshair;
+            width: 100%;
+            max-width: 900px;
+        }
+        .controls {
+            flex: 0 0 350px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .input-method {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .method-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .method-btn {
+            padding: 8px 12px;
+            background-color: #e0e0e0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .method-btn.active {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #45a049;
+        }
+        .input-fields {
+            display: none;
+        }
+        .input-fields.active {
+            display: block;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.clear {
+            background-color: #f44336;
+        }
+        button.clear:hover {
+            background-color: #da190b;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4f8;
+            border-radius: 5px;
+            border: 1px solid #b3d9e6;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .result-item {
+            margin: 8px 0;
+            padding: 10px;
+            background-color: white;
+            border-radius: 3px;
+            border-left: 4px solid #4CAF50;
+        }
+        .result-item:hover {
+            background-color: #f5f5f5;
+        }
+        .result-item .main-values {
+            font-weight: bold;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .result-item .secondary-values {
+            font-size: 13px;
+            color: #555;
+            line-height: 1.6;
+        }
+        .delete-point {
+            float: right;
+            color: #f44336;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .delete-point:hover {
+            color: #da190b;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            pointer-events: none;
+            display: none;
+            font-size: 12px;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .legend {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-color {
+            width: 20px;
+            height: 2px;
+            margin-right: 10px;
+        }
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #fffbf0;
+            border-left: 3px solid #ffa500;
+            border-radius: 3px;
+        }
+        .altitude-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+        
+        /* Estilos para el acordeón de información */
+        .accordion {
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            padding: 15px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 16px;
+            font-weight: bold;
+            transition: 0.4s;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        
+        .accordion:hover {
+            background-color: #45a049;
+        }
+        
+        .accordion.active {
+            background-color: #45a049;
+        }
+        
+        .accordion:after {
+            content: '\002B'; /* Símbolo + */
+            color: white;
+            font-weight: bold;
+            float: right;
+            margin-left: 5px;
+        }
+        
+        .accordion.active:after {
+            content: "\2212"; /* Símbolo - */
+        }
+        
+        .panel {
+            padding: 0 18px;
+            background-color: #f9f9f9;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            border-radius: 0 0 5px 5px;
+        }
+        
+        .panel.show {
+            padding: 18px;
+            border: 1px solid #ddd;
+            border-top: none;
+        }
+        
+        .panel h3 {
+            color: #4CAF50;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .panel h4 {
+            color: #666;
+            margin-top: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .panel p {
+            margin: 8px 0;
+            line-height: 1.6;
+            color: #555;
+        }
+        
+        .panel ul {
+            margin: 8px 0;
+            padding-left: 25px;
+        }
+        
+        .panel li {
+            margin: 5px 0;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+   <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+            <div style="flex: 0 0 80px; margin-right: 15px;">
+                <!-- Espacio reservado para logo -->
+                <img src="https://github.com/Jhrodri/open/blob/main/logo.png?raw=true", width=300>
+                
+            </div>
+    
+        </div>     
+        
+        
+        
+        <h1>Diagrama psicrométrico interactivo</h1>
+        
+        <!-- Nueva sección de configuración de presión -->
+        <div class="pressure-config">
+            <h3>Configuración de Presión Atmosférica</h3>
+            <div class="pressure-inputs">
+                <div class="pressure-input-group">
+                    <label for="pressure-direct">Presión directa (kPa):</label>
+                    <input type="number" id="pressure-direct" min="50" max="110" step="0.1" value="101.3">
+                </div>
+                <div class="pressure-input-group">
+                    <label for="altitude">Altitud (metros):</label>
+                    <input type="number" id="altitude" min="-500" max="9000" step="1" value="0">
+                </div>
+                <div class="pressure-input-group">
+                    <label for="city-preset">Ciudades de ejemplo:</label>
+                    <select id="city-preset">
+                        <option value="">Selecciona una ciudad...</option>
+                        <option value="0">Nivel del mar (0 m)</option>
+                        <option value="106">Córdoba (106 m)</option>
+                        <option value="655">Madrid (655 m)</option>
+                        <option value="684">Granada (684 m)</option>
+                        <option value="749">Palencia (749 m)</option>
+                        <option value="859">Burgos (859 m)</option>
+                        <option value="1005">Segovia (1005 m)</option>
+                        <option value="1131">Ávila (1131 m)</option>
+                        <option value="1540">Denver, USA (1540 m)</option>                   
+                        <option value="2850">Quito, Ecuador (2850 m)</option>
+                        <option value="3650">La Paz, Bolivia (3650 m)</option>
+                        
+                    </select>
+                </div>
+            </div>
+            <div class="pressure-buttons">
+                <button onclick="resetToSeaLevel()">Restablecer a Nivel del Mar</button>
+                <button onclick="updatePressureFromAltitude()">Calcular desde Altitud</button>
+                <button onclick="updatePressureFromDirect()">Usar Presión Directa</button>
+            </div>
+            <div class="pressure-display">
+                <strong>Presión actual:</strong> <span id="current-pressure">101.3</span> kPa | 
+                <strong>Altitud equivalente:</strong> <span id="equivalent-altitude">0</span> m | 
+                <strong>Temperatura de ebullición del agua:</strong> <span id="boiling-temp">100.0</span> °C
+                <div class="altitude-info">
+                    Nota: La presión atmosférica disminuye aproximadamente 12 Pa por metro de altitud en las primeras capas de la atmósfera.
+                </div>
+            </div>
+        </div>
+        <h4>Introducción</h4>
+        <div class="main-content">
+            <div class="canvas-container">
+                <canvas id="mollierCanvas"></canvas>
+                <div class="tooltip" id="tooltip"></div>
+            </div>
+            <div class="controls">
+                <div class="input-method">
+                    <h3>Método de entrada</h3>
+                    <h4>T:Temperatura seca;T<sub>bh</sub>:Temperatura húmeda w:Razón de humedad;h: Entalpía; P<sub>v</sub>:Presión de vapor</h4>
+                    <div class="method-selector">
+                        <button class="method-btn active" onclick="selectMethod('T-RH')">T + HR</button>
+                        <button class="method-btn" onclick="selectMethod('T-W')">T + w</button>
+                        <button class="method-btn" onclick="selectMethod('T-Twb')">T + T<sub>bh</sub></button>
+                        <button class="method-btn" onclick="selectMethod('T-h')">T + h</button>
+                        <button class="method-btn" onclick="selectMethod('T-Pv')">T + P<sub>v</sub></button>
+                    </div>
+                    
+                    <!-- T + HR -->
+                    <div class="input-fields active" id="fields-T-RH">
+                        <div class="input-group">
+                            <label for="temp-rh">Temperatura (°C):</label>
+                            <input type="number" id="temp-rh" min="-20" max="60" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="rh">Humedad Relativa (%):</label>
+                            <input type="number" id="rh" min="0" max="100" step="1">
+                        </div>
+                    </div>
+                    
+                    <!-- T + W -->
+                    <div class="input-fields" id="fields-T-W">
+                        <div class="input-group">
+                            <label for="temp-w">Temperatura (°C):</label>
+                            <input type="number" id="temp-w" min="-20" max="60" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="w">Razón de humedad (g/kg):</label>
+                            <input type="number" id="w" min="0" max="30" step="0.01">
+                        </div>
+                    </div>
+                    
+                    <!-- T + Twb -->
+                    <div class="input-fields" id="fields-T-Twb">
+                        <div class="input-group">
+                            <label for="temp-twb">Temperatura seca (°C):</label>
+                            <input type="number" id="temp-twb" min="-20" max="60" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="twb">Temperatura bulbo húmedo (°C):</label>
+                            <input type="number" id="twb" min="-20" max="60" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- T + h -->
+                    <div class="input-fields" id="fields-T-h">
+                        <div class="input-group">
+                            <label for="temp-h">Temperatura (°C):</label>
+                            <input type="number" id="temp-h" min="-20" max="60" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="h">Entalpía (kJ/kg):</label>
+                            <input type="number" id="h" min="-20" max="150" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- T + Pv -->
+                    <div class="input-fields" id="fields-T-Pv">
+                        <div class="input-group">
+                            <label for="temp-pv">Temperatura (°C):</label>
+                            <input type="number" id="temp-pv" min="-20" max="60" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="pv">Presión de vapor (kPa):</label>
+                            <input type="number" id="pv" min="0" max="10" step="0.001">
+                        </div>
+                    </div>
+                    
+                    <button onclick="calculatePoint()">Calcular y Agregar Punto</button>
+                </div>
+                Si los valores elegidos se salen del gráfico no se mostrarán en él pero sí se realizarán los cálculos
+                <div class="results">
+                    <h3>Puntos Marcados</h3>
+                    <div id="pointsList"></div>
+                    <button class="clear" onclick="clearPoints()">Limpiar todos los puntos</button>
+                    <button onclick="downloadSVG()" style="background-color: #2196F3; margin-top: 10px;">📥 Descargar Diagrama SVG</button>
+                </div>
+                
+                <div class="legend">
+                    <h4>Leyenda</h4>
+                   
+                    <div class="legend-item">
+                        <div class="legend-color" style="border-top: 2px solid #0000ff; background-color: transparent;"></div>
+                        <span>Líneas de humedad relativa constante</span>
+                        </div>                        
+                    <div class="legend-item">
+                        <div class="legend-color" style="border-top: 2px solid #000000; background-color: transparent;"></div>
+                        <span>Líneas de entalpía constante</span>
+                        </div>                     <div class="legend-item">
+                        <div class="legend-color" style="border-top: 2px dotted #000000; background-color: transparent;"></div>
+                        <span>Líneas de temperatura de bulbo húmedo</span>
+                        </div>              
+                <div class="info-text">
+                    💡 <strong>Consejo:</strong> Haz clic en el diagrama para agregar un punto directamente, o ingresa valores usando los campos de arriba.
+                </div>
+            </div>
+        </div>
+
+        
+
+        <div style="display: flex; align-items: center; justify-content: flex-start; margin-bottom: 20px;">
+            <div style="flex: 0 0 80px; margin-right: 15px;">
+                <img src="https://github.com/Jhrodri/open/blob/main/logo.png?raw=true", width=200>
+                
+            </div>
+            <h4 style="flex: 1;">© jhrodri 2025  Diagrama psicrométrico interactivo</h4>
+        </div>
+        
+        
+        
+        <!-- Sección desplegable de información explicativa -->
+        <button class="accordion">📚 Información y Documentación</button>
+        <div class="panel">
+            <h3>Introducción</h3>
+            <p>
+                El diagrama psicrométrico es una herramienta  que representa las propiedades termodinámicas del aire húmedo. Permite visualizar y calcular de forma rápida las relaciones entre diferentes variables psicrométricas mediante simples interpolaciones gráficas. Esta aplicación además realiza los cálculos de todas las variables siguiendo la metodología ASHRAE (ver más abajo)
+            </p>
+           
+            
+            <h3>Variables Psicrométricas</h3>
+            
+            <h4>Temperatura de Bulbo Seco (T)</h4>
+            <p>
+                Es la temperatura del aire medida con un termómetro ordinario, sin considerar la humedad. Se expresa en grados Celsius (°C) y es la temperatura que normalmente percibimos y medimos en el ambiente. En el diagrama, las líneas verticales representan valores constantes de temperatura de bulbo seco.
+            </p>
+            
+            <h4>Humedad Relativa (HR)</h4>
+            <p>
+                Es el cociente entre la cantidad de vapor de agua presente en el aire y la cantidad máxima que podría contener a esa temperatura, expresado en porcentaje. Una HR del 100% indica aire saturado (punto de rocío), mientras que 0% indica aire completamente seco.
+            </p>
+            <p>
+                <strong>Fórmula:</strong> φ = (e<sub>s</sub> / e<sub>a</sub>)] × 100 [%]<br>
+                Donde e<sub>s</sub> es la presión de vapor de saturación y e<sub>a</sub>P es la presión de vapor.
+            </p>
+            <p>
+                También puede expresarse en términos de razón de humedad (aproximación válida para presiones cercanas a la atmosférica):<br>
+                φ ≈ (w / w<sub>s</sub>) × 100 [%]<br>
+                Donde w es la razón de humedad actual y w<sub>s</sub> es la razón de humedad de saturación.
+            </p>
+            <p>
+                En el diagrama, las curvas que van desde la parte inferior izquierda hacia la superior derecha representan líneas de humedad relativa constante.
+            </p>
+            
+            <h4>Razón de Humedad (w)</h4>
+            <p>
+                También llamada razón de mezcla, es la masa de vapor de agua por unidad de masa de aire seco. Se expresa en gramos de vapor de agua por kilogramo de aire seco (g/kg). Esta variable es independiente de la temperatura y representa la cantidad real de humedad en el aire.
+            </p>
+            <p>
+                <strong>Fórmula:</strong> w = 0.62198 × e<sub>a</sub> / (P - e<sub>a</sub>) [kg/kg]<br>
+                Donde e<sub>a</sub> es la presión de vapor de agua y P es la presión atmosférica (ambos en Pa).
+            </p>
+            <p>
+                En el diagrama, el eje vertical representa la razón de humedad. Las líneas horizontales indican valores constantes de esta variable.
+            </p>
+            
+            <h4>Entalpía (h)</h4>
+            <p>
+                Es el contenido total de energía del aire húmedo por unidad de masa de aire seco, expresado en kilojulios por kilogramo (kJ/kg). Incluye tanto el calor sensible (temperatura) como el calor latente (energía contenida en el vapor de agua). 
+            </p>
+            <p>
+                <strong>Fórmula:</strong> h = 1.006 × T + w × (2501 + 1.805 × T) [kJ/kg]<br>
+                Donde T es la temperatura en °C y w es la razón de humedad en kg/kg.
+            </p>
+            <p>
+                En el diagrama, las líneas diagonales de color naranja que van desde la parte superior izquierda hacia la inferior derecha representan valores constantes de entalpía.
+            </p>
+            
+            <h4>Temperatura de Bulbo Húmedo (T<sub>bh</sub>)</h4>
+            <p>
+                Es la temperatura más baja que puede alcanzar el aire mediante evaporación de agua, medida con un termómetro cuyo bulbo está cubierto por una mecha húmeda. Representa la temperatura de equilibrio entre el calor sensible y el calor latente de evaporación. Es especialmente útil en procesos de enfriamiento evaporativo.
+            </p>
+            <p>
+                <strong>Cálculo:</strong> 
+                w = [(2501 - 2.381 × T<sub>bh</sub>) × w<sub>s,bh</sub> - 1.006 × (T - T<sub>bh</sub>)] / [2501 + 1.805 × T - 4.186 × T<sub>bh</sub>]<br>
+                Donde w<sub>s,bh</sub> es la razón de humedad de saturación a la temperatura de bulbo húmedo.
+            </p>
+            <p>
+                En el diagrama, las líneas diagonales verdes discontinuas representan valores constantes de temperatura de bulbo húmedo.
+            </p>
+            
+            <h4>Temperatura de Rocío (T<sub>rocío</sub>)</h4>
+            <p>
+                Es la temperatura a la cual el aire debe enfriarse a presión constante para alcanzar la saturación (HR = 100%). Por debajo de esta temperatura, el vapor de agua comienza a condensarse. Es crítica para prevenir problemas de condensación.
+            </p>
+            <p>
+                <strong>Fórmula:</strong> T<sub>d</sub> = 6.54 + 14.526×a + 0.7389×a² + 0.09486×a³ + 0.4569×(e<sub>a</sub>/1000)<sup>0.1984</sup> [°C]<br>
+                Donde a = ln(e<sub>a</sub>/1000) y e<sub>a</sub> es la presión de vapor en Pa.<br>
+                Para T<sub>d</sub> < 0°C: T<sub>d</sub> = 6.09 + 12.608×a + 0.4959×a² [°C]
+            </p>
+            
+            <h4>Presión de Vapor (P<sub>v</sub>)</h4>
+            <p>
+                Es la presión parcial ejercida por el vapor de agua en el aire, expresada en kilopascales (kPa). Indica la cantidad de vapor de agua presente en términos de presión. 
+            </p>
+            <p>
+                <strong>Fórmula:</strong> e<sub>a</sub> = P × w / (0.62198 + w) [Pa]<br>
+                Donde P es la presión atmosférica en Pa y w es la razón de humedad en kg/kg.
+            </p>
+            <p>
+                <strong>Presión de vapor de saturación (ASHRAE):</strong><br>
+                Es la presión de vapor máxima de una masa de aire para una temperatura concreta (presión de vapor de saturación, P<sub>vs</sub>) (depende únicamente de la temperatura).
+                Para T > 0°C:<br>
+                e<sub>s</sub> = exp(c₈/T<sub>K</sub> + c₉ + c₁₀T<sub>K</sub> + c₁₁T<sub>K</sub>² + c₁₂T<sub>K</sub>³ + c₁₃ln(T<sub>K</sub>)) [Pa]<br>
+                Para T ≤ 0°C:<br>
+                e<sub>s</sub> = exp(c₁/T<sub>K</sub> + c₂ + c₃T<sub>K</sub> + c₄T<sub>K</sub>² + c₅T<sub>K</sub>³ + c₆T<sub>K</sub>⁴ + c₇ln(T<sub>K</sub>)) [Pa]<br>
+                Donde T<sub>K</sub> es la temperatura en Kelvin y c₁...c₁₃ son constantes de ASHRAE: c1 = -5.6745359E+3; c2 = 6.3925247E+0; c3 = -9.677843E-3; c4 = 6.2215701E-7; c5 = 2.0747825E-9; c6 = -9.484024E-13; c7 = 4.1635019E+0; c8=-5.8002206E+3; c9=1.3914993E+0; c10=-4.8640239E-2; c11=4.1764768E-5; c12=-1.4452093E-8; c13=6.5459673E+0;.
+            </p>
+            <p>
+                El <strong>Déficit de Presión de Vapor (DPV)</strong> es la diferencia entre la presión de vapor de saturación y la presión de vapor actual: DPV = P<sub>vs</sub> - P<sub>v</sub>. Es importante en aplicaciones agrícolas y de control de transpiración.
+            </p>
+            
+            <h4>Densidad del Aire (ρ)</h4>
+            <p>
+                Es la masa de aire húmedo por unidad de volumen, expresada en kilogramos por metro cúbico (kg/m³). 
+            </p>
+            <p>
+                <strong>Fórmula:</strong> ρ = (1/v) × (1 + w) [kg/m³]<br>
+                Donde v es el volumen específico en m³/kg y w es la razón de humedad en kg/kg.
+            </p>
+            
+            <h4>Volumen Específico (v)</h4>
+            <p>
+                Es el volumen ocupado por un kilogramo de aire seco más el vapor de agua asociado, expresado en metros cúbicos por kilogramo (m³/kg). Es el inverso de la densidad.
+            </p>
+            <p>
+                <strong>Fórmula:</strong> v = 287.1 × (T + 273.15) × (1 + 1.6078 × w) / P [m³/kg]<br>
+                Donde T es la temperatura en °C, w es la razón de humedad en kg/kg y P es la presión atmosférica en Pa.
+            </p>
+            
+            <h3>Efecto de la Presión Atmosférica</h3>
+            <p>
+                La presión atmosférica varía con la altitud según la fórmula barométrica estándar de ASHRAE:
+            </p>
+            <p>
+                <strong>P = 101325 × (1 - 2.25577 × 10⁻⁵ × h)<sup>5.2559</sup> [Pa]</strong><br>
+                Donde h es la altitud en metros sobre el nivel del mar.
+            </p>
+            <p>
+                Esta variación es importante porque afecta significativamente a todas las propiedades psicrométricas. Por ejemplo:
+            </p>
+            <ul>
+                <li>A mayor altitud (menor presión), el aire puede contener menos vapor de agua a saturación</li>
+                <li>El punto de ebullición del agua disminuye con la altitud</li>
+                <li>La densidad del aire disminuye</li>
+            </ul>
+            
+            
+            <h3>Cómo Usar el Diagrama</h3>
+            
+            <h4>Métodos de Entrada</h4>
+            <p>
+                El diagrama ofrece cinco métodos diferentes para introducir las condiciones del aire. Solo necesitas conocer dos variables para determinar el estado completo del aire húmedo:
+            </p>
+            <ul>
+                <li><strong>T + HR:</strong> Temperatura de bulbo seco y Humedad Relativa. Es el método más común, ya que son las variables más fáciles de medir.</li>
+                <li><strong>T + w:</strong> Temperatura y Razón de humedad. Útil cuando se conoce el contenido exacto de humedad.</li>
+                <li><strong>T + T<sub>bh</sub>:</strong> Temperatura de bulbo seco y bulbo húmedo. Método tradicional usado con psicrómetros.</li>
+                <li><strong>T + h:</strong> Temperatura y Entalpía. Común en cálculos de balance energético de sistemas de climatización.</li>
+                <li><strong>T + P<sub>v</sub>:</strong> Temperatura y Presión de vapor. .</li>
+            </ul>
+            <p>
+                Además de introducir valores manualmente, puedes <strong>hacer clic directamente en el diagrama</strong> para marcar un punto y obtener todas sus propiedades instantáneamente (sin necesidad de elegir dos valores iniciales con lo que se pueden relacionar todas las variables.
+            </p>
+            
+            <h4>Configuración de Presión Atmosférica</h4>
+            <p>
+                Es fundamental configurar correctamente la presión atmosférica según ubicación, ya que esto afecta a todos los cálculos. Tienes tres opciones:
+            </p>
+            <ul>
+                <li><strong>Restablecer a Nivel del Mar:</strong> Establece P = 101.3 kPa (nivel del mar estándar).</li>
+                <li><strong>Calcular desde Altitud:</strong> Introduce la altitud en metros y la presión se calcula automáticamente usando la fórmula de ASHRAE.</li>
+                <li><strong>Usar Presión Directa:</strong> Introduce directamente el valor de presión atmosférica si lo conoces (por ejemplo, de una estación meteorológica).</li>
+            </ul>
+            <p>
+                También puedes usar el selector de ciudades de ejemplo para configurar rápidamente la presión para ubicaciones comunes.
+            </p>
+            
+            <h4>Interpretación de Resultados</h4>
+            <p>
+                Cuando marcas o calculas un punto, el diagrama muestra:
+            </p>
+            <ul>
+                <li><strong>Valores principales:</strong> T, HR y w (razón de humedad) en la barra superior del resultado</li>
+                <li><strong>Valores secundarios:</strong> Todos los demás parámetros calculados (h, T<sub>bh</sub>, T<sub>rocío</sub>, P<sub>v</sub>, P<sub>vs</sub>, DPV, w<sub>sat</sub>, ρ, v)</li>
+                <li><strong>Advertencia:</strong> Si el punto está fuera de los márgenes del diagrama, aparece un mensaje naranja. Los cálculos siguen siendo válidos aunque el punto no se visualice gráficamente.</li>
+            </ul>
+            
+            
+            
+            <h3>Casos de Uso Típicos</h3>
+            
+            <h4>Ejemplo 1: Diseño de Sistema de Aire Acondicionado</h4>
+            <p>
+                <strong>Problema:</strong> Necesitas enfriar una sala desde 30°C y 60% HR hasta 24°C y 50% HR.<br>
+                <strong>Solución:</strong>
+            </p>
+            <ol>
+                <li>Marca el punto inicial (30°C, 60% HR) en el diagrama</li>
+                <li>Marca el punto final (24°C, 50% HR)</li>
+                <li>La diferencia en entalpía te da la carga térmica total</li>
+                <li>La diferencia en razón de humedad te da la cantidad de agua que debe removerse (carga latente)</li>
+                <li>La diferencia en temperatura te da la carga sensible</li>
+            </ol>
+            
+            <h4>Ejemplo 2: Enfriamiento Evaporativo</h4>
+            <p>
+                <strong>Problema:</strong> ¿Cuánto puedo enfriar el aire exterior (35°C, 20% HR) usando un climatizador evaporativo?<br>
+                <strong>Solución:</strong>
+            </p>
+            <ol>
+                <li>Marca el punto inicial (35°C, 20% HR)</li>
+                <li>Sigue la línea de bulbo húmedo constante (hacia la izquierda y arriba)</li>
+                <li>El aire se enfriará hasta aproximadamente la temperatura de bulbo húmedo</li>
+                <li>En este caso, alcanzarías unos 20-22°C con 80-90% HR</li>
+            </ol>
+            
+            <h4>Ejemplo 3: Riesgo de Condensación</h4>
+            <p>
+                <strong>Problema:</strong> La temperatura interior es 20°C con 60% HR. ¿A qué temperatura superficial aparecerá condensación?<br>
+                <strong>Solución:</strong>
+            </p>
+            <ol>
+                <li>Marca el punto (20°C, 60% HR)</li>
+                <li>Muévete hacia la izquierda (sin subir ni bajar) hasta llegar a la HR del 100% y eso da la Tª de rocío de 12ºC</li>
+                <li>Cualquier superficie por debajo de 12°C presentará condensación</li>
+                
+            </ol>
+            
+            <h3>Referencia </h3>
+            <p>
+                Las ecuaciones utilizadas en este diagrama están basadas en las normas de <strong>ASHRAE (American Society of Heating, Refrigerating and Air-Conditioning Engineers)</strong>, específicamente en el <strong>ASHRAE Handbook - Fundamentals</strong>, que es la referencia mundial en psicrometría y propiedades termofísicas del aire húmedo.
+            </p>
+            
+
+            
+            <h4>Constantes de ASHRAE para Presión de Vapor de Saturación</h4>
+            <p>Para temperaturas por encima de 0°C:</p>
+            <ul>
+                <li>c₈ = -5800.2206</li>
+                <li>c₉ = 1.3914993</li>
+                <li>c₁₀ = -0.048640239</li>
+                <li>c₁₁ = 4.1764768 × 10⁻⁵</li>
+                <li>c₁₂ = -1.4452093 × 10⁻⁸</li>
+                <li>c₁₃ = 6.5459673</li>
+            </ul>
+            <p>Para temperaturas iguales o por debajo de 0°C:</p>
+            <ul>
+                <li>c₁ = -5674.5359</li>
+                <li>c₂ = 6.3925247</li>
+                <li>c₃ = -0.009677843</li>
+                <li>c₄ = 6.2215701 × 10⁻⁷</li>
+                <li>c₅ = 2.0747825 × 10⁻⁹</li>
+                <li>c₆ = -9.484024 × 10⁻¹³</li>
+                <li>c₇ = 4.1635019</li>
+            </ul>
+            
+            <h4>Nota sobre Unidades</h4>
+            <p>
+                Este diagrama utiliza las unidades del Sistema Internacional (SI) según las convenciones de ASHRAE:
+            </p>
+            <ul>
+                <li>Temperatura: grados Celsius (°C)</li>
+                <li>Presión: Pascales (Pa) o kiloPascales (kPa)</li>
+                <li>Razón de humedad: kilogramos por kilogramo (kg/kg) o gramos por kilogramo (g/kg)</li>
+                <li>Entalpía: kilojulios por kilogramo (kJ/kg)</li>
+                <li>Densidad: kilogramos por metro cúbico (kg/m³)</li>
+                <li>Volumen específico: metros cúbicos por kilogramo (m³/kg)</li>
+            </ul>
+            
+            <h4>Limitaciones y Consideraciones</h4>
+            <ul>
+                <li>Este diagrama es válido para aire atmosférico estándar (78% N₂, 21% O₂, 1% otros gases)</li>
+                <li>Las ecuaciones asumen comportamiento de gas ideal</li>
+                <li>Para temperaturas extremas (&lt;-60°C o &gt;80°C), los resultados pueden tener mayor incertidumbre</li>
+                <li>En ambientes contaminados o con gases especiales, las propiedades pueden variar</li>
+                <li>La precisión de los cálculos depende de la calidad de las mediciones de entrada</li>
+            </ul>
+            
+ 
+        </div>
+    </div>
+    
+    <script>
+        // Script para el acordeón
+        document.addEventListener('DOMContentLoaded', function() {
+            var acc = document.getElementsByClassName("accordion");
+            for (var i = 0; i < acc.length; i++) {
+                acc[i].addEventListener("click", function() {
+                    this.classList.toggle("active");
+                    var panel = this.nextElementSibling;
+                    if (panel.style.maxHeight) {
+                        panel.style.maxHeight = null;
+                        panel.classList.remove("show");
+                    } else {
+                        panel.style.maxHeight = panel.scrollHeight + "px";
+                        panel.classList.add("show");
+                    }
+                });
+            }
+        });
+    </script>
+    
+    <script>
+        // Variable global para la presión atmosférica
+        let ATMOSPHERIC_PRESSURE = 101325; // Pa (valor por defecto: nivel del mar)
+        
+        const canvas = document.getElementById('mollierCanvas');
+        const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('tooltip');
+        
+        // Configurar resolución del canvas
+        canvas.width = 900;
+        canvas.height = 600;
+        
+        // Constantes del diagrama
+        const TEMP_MIN = -10;
+        const TEMP_MAX = 50;
+        const W_MIN = 0;
+        const W_MAX = 30;
+        
+        let markedPoints = [];
+        let currentMethod = 'T-RH';
+        
+        // Funciones para el cálculo de presión atmosférica
+        function altitudeToPressure(altitude) {
+            // Fórmula barométrica simplificada (ASHRAE)
+            // P = 101325 * (1 - 2.25577 × 10⁻⁵ × altitude)^5.2559
+            // Donde:
+            // P0 = 101325 Pa (presión a nivel del mar)
+            // altitude = altitud en metros
+            // Resultado en Pa
+            
+            const pressure = 101325 * Math.pow(1 - 2.25577e-5 * altitude, 5.2559);
+            return pressure;
+        }
+        
+        function pressureToAltitude(pressure) {
+            // Fórmula inversa simplificada
+            // altitude = (1 - (P/P0)^(1/5.2559)) / 2.25577 × 10⁻⁵
+            // P en Pa
+            
+            const altitude = (1 - Math.pow(pressure / 101325, 1 / 5.2559)) / 2.25577e-5;
+            return altitude;
+        }
+        
+        function waterBoilingPoint(pressure) {
+            // Aproximación para el punto de ebullición del agua en función de la presión
+            // Usando la ecuación de Antoine simplificada
+            const P_atm = pressure / 101325; // Convertir a atmósferas
+            // Aproximación empírica
+            const T_boiling = 100 * Math.pow(P_atm, 0.192);
+            return T_boiling;
+        }
+        
+        // Funciones de actualización de presión
+        function updatePressureFromDirect() {
+            const pressureValue = parseFloat(document.getElementById('pressure-direct').value);
+            if (pressureValue >= 50 && pressureValue <= 110) {
+                ATMOSPHERIC_PRESSURE = pressureValue * 1000; // Convertir kPa a Pa
+                updatePressureDisplay();
+                redraw();
+            } else {
+                alert('Por favor ingrese una presión entre 50 y 110 kPa');
+            }
+        }
+        
+        function updatePressureFromAltitude() {
+            const altitudeInput = document.getElementById('altitude').value;
+            if (altitudeInput === '') {
+                alert('Por favor ingrese una altitud');
+                return;
+            }
+            const altitude = parseFloat(altitudeInput);
+            if (altitude >= -500 && altitude <= 9000) {
+                ATMOSPHERIC_PRESSURE = altitudeToPressure(altitude); // Pa
+                document.getElementById('pressure-direct').value = (ATMOSPHERIC_PRESSURE / 1000).toFixed(1); // Mostrar en kPa
+                updatePressureDisplay();
+                redraw();
+            } else {
+                alert('Por favor ingrese una altitud entre -500 y 9000 metros');
+            }
+        }
+        
+        function resetToSeaLevel() {
+            ATMOSPHERIC_PRESSURE = 101325; // Pa
+            document.getElementById('pressure-direct').value = '101.3';
+            document.getElementById('altitude').value = '0';
+            updatePressureDisplay();
+            redraw();
+        }
+        
+        function updatePressureDisplay() {
+            const altitude = pressureToAltitude(ATMOSPHERIC_PRESSURE);
+            const boilingTemp = waterBoilingPoint(ATMOSPHERIC_PRESSURE);
+            
+            document.getElementById('current-pressure').textContent = (ATMOSPHERIC_PRESSURE / 1000).toFixed(2); // Mostrar en kPa
+            document.getElementById('equivalent-altitude').textContent = altitude.toFixed(0);
+            document.getElementById('boiling-temp').textContent = boilingTemp.toFixed(1);
+        }
+        
+        // Selector de ciudades
+        document.getElementById('city-preset').addEventListener('change', function(e) {
+            if (e.target.value !== '') {
+                const altitude = parseFloat(e.target.value);
+                document.getElementById('altitude').value = altitude;
+                updatePressureFromAltitude();
+            }
+        });
+        
+        // Funciones psicrométricas modificadas para usar presión variable
+        function saturationPressure(T) {
+            // Ecuaciones de ASHRAE para presión de vapor de saturación
+            // Resultado en Pa
+            const c1 = -5.6745359e3;
+            const c2 = 6.3925247e0;
+            const c3 = -9.677843e-3;
+            const c4 = 6.2215701e-7;
+            const c5 = 2.0747825e-9;
+            const c6 = -9.484024e-13;
+            const c7 = 4.1635019e0;
+            const c8 = -5.8002206e3;
+            const c9 = 1.3914993;
+            const c10 = -4.8640239e-2;
+            const c11 = 4.1764768e-5;
+            const c12 = -1.4452093e-8;
+            const c13 = 6.5459673;
+            
+            const T_K = T + 273.15; // Convertir a Kelvin
+            
+            if (T > 0) {
+                return Math.exp(c8 / T_K + c9 + c10 * T_K + c11 * T_K * T_K + c12 * T_K * T_K * T_K + c13 * Math.log(T_K));
+            } else {
+                return Math.exp(c1 / T_K + c2 + c3 * T_K + c4 * T_K * T_K + c5 * T_K * T_K * T_K + c6 * T_K * T_K * T_K * T_K + c7 * Math.log(T_K));
+            }
+        }
+        
+        function saturationHumidity(T) {
+            const Pvs = saturationPressure(T);
+            const w_sat = 0.62198 * Pvs / (ATMOSPHERIC_PRESSURE - Pvs); // kg/kg
+            return w_sat * 1000; // Convertir a g/kg para el diagrama
+        }
+        
+        function absoluteHumidity(T, RH) {
+            // Método correcto: calcular p_w primero, luego w
+            const Pvs = saturationPressure(T); // Pa
+            const Pv = Pvs * (RH / 100); // Pa
+            const w_kg = 0.62198 * Pv / (ATMOSPHERIC_PRESSURE - Pv); // kg/kg
+            return w_kg * 1000; // Convertir a g/kg
+        }
+        
+        function relativeHumidity(T, w) {
+            const w_sat = saturationHumidity(T);
+            return Math.min(100, (w / w_sat) * 100);
+        }
+        
+        function enthalpy(T, w) {
+            // w en g/kg, convertir a kg/kg
+            const w_kg = w / 1000;
+            return 1.006 * T + w_kg * (2501 + 1.805 * T);
+        }
+        
+        function wetBulbTemp(T, w) {
+            // Iterative solution for wet bulb temperature
+            let Twb = T;
+            const RH = relativeHumidity(T, w);
+            
+            if (RH >= 99.9) return T;
+            
+            let error = 1;
+            let iterations = 0;
+            while (Math.abs(error) > 0.01 && iterations < 100) {
+                const w_sat_wb = saturationHumidity(Twb);
+                const h_wb = enthalpy(Twb, w_sat_wb);
+                const h_actual = enthalpy(T, w);
+                error = h_wb - h_actual;
+                Twb -= error * 0.1;
+                iterations++;
+            }
+            return Twb;
+        }
+        
+        function vaporPressure(w) {
+            // w en g/kg, convertir a kg/kg
+            const w_kg = w / 1000;
+            return ATMOSPHERIC_PRESSURE * w_kg / (0.62198 + w_kg); // Pa
+        }
+        
+        function absoluteHumidityFromPv(Pv) {
+            const w_kg = 0.62198 * Pv / (ATMOSPHERIC_PRESSURE - Pv); // kg/kg
+            return w_kg * 1000; // Convertir a g/kg
+        }
+        
+        function dewPointTemp(T, w) {
+            const Pv = vaporPressure(w); // Pa
+            const Pv_kPa = Pv / 1000; // Convertir a kPa para la fórmula
+            const a = Math.log(Pv_kPa);
+            const c14 = 6.54;
+            const c15 = 14.526;
+            const c16 = 0.7389;
+            const c17 = 0.09486;
+            const c18 = 0.4569;
+            let Tdew = c14 + c15 * a + c16 * a * a + c17 * a * a * a + c18 * Math.pow(Pv_kPa, 0.1984);
+            if (Tdew < 0) {
+                Tdew = 6.09 + 12.608 * a + 0.4959 * a * a;
+            }
+            return Tdew;
+        }
+        
+        function vaporPressureDeficit(T, w) {
+            const Pvs = saturationPressure(T);
+            const Pv = vaporPressure(w);
+            return Pvs - Pv;
+        }
+        
+        function specificVolume(T, w) {
+            // Volumen específico según ASHRAE
+            // v = 287.1 × (T + 273.15) × (1 + 1.6078 × w) / P
+            // w en g/kg, convertir a kg/kg
+            const w_kg = w / 1000;
+            const v = 287.1 * (T + 273.15) * (1 + 1.6078 * w_kg) / ATMOSPHERIC_PRESSURE;
+            return v; // m³/kg
+        }
+        
+        function density(T, w) {
+            // Densidad del aire según ASHRAE
+            // ρ = (1/v) × (1 + w)
+            const v = specificVolume(T, w);
+            const w_kg = w / 1000;
+            const rho = (1 / v) * (1 + w_kg);
+            return rho; // kg/m³
+        }
+        
+        function absoluteHumidityFromWetBulb(T, Twb) {
+            // Ecuación psicrométrica simplificada (ASHRAE)
+            const Pvs_wb = saturationPressure(Twb); // Pa
+            const A = 0.00066 * (ATMOSPHERIC_PRESSURE / 101325); // Factor psicrométrico ajustado
+            const Pv = Pvs_wb - A * ATMOSPHERIC_PRESSURE * (T - Twb);
+            return absoluteHumidityFromPv(Pv); // g/kg
+        }
+        
+        function absoluteHumidityFromEnthalpy(T, h) {
+            // h en kJ/kg, devuelve w en g/kg
+            const w_kg = (h - 1.006 * T) / (2501 + 1.805 * T); // kg/kg
+            return w_kg * 1000; // Convertir a g/kg
+        }
+        
+        function selectMethod(method) {
+            currentMethod = method;
+            document.querySelectorAll('.method-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.input-fields').forEach(fields => {
+                fields.classList.remove('active');
+            });
+            document.getElementById('fields-' + method).classList.add('active');
+        }
+        
+        function calculatePoint() {
+            let T, w, RH, h, Twb, Pv, Tdew, Pvs, DPV, w_sat, v, rho;
+            
+            try {
+                switch(currentMethod) {
+                    case 'T-RH':
+                        T = parseFloat(document.getElementById('temp-rh').value);
+                        RH = parseFloat(document.getElementById('rh').value);
+                        if (isNaN(T) || isNaN(RH)) throw new Error("Por favor ingresa valores válidos");
+                        if (T < -20 || T > 60) throw new Error("La temperatura debe estar entre -20°C y 60°C");
+                        if (RH < 0 || RH > 100) throw new Error("La humedad relativa debe estar entre 0% y 100%");
+                        w = absoluteHumidity(T, RH);
+                        break;
+                        
+                    case 'T-W':
+                        T = parseFloat(document.getElementById('temp-w').value);
+                        w = parseFloat(document.getElementById('w').value);
+                        if (isNaN(T) || isNaN(w)) throw new Error("Por favor ingresa valores válidos");
+                        if (T < -20 || T > 60) throw new Error("La temperatura debe estar entre -20°C y 60°C");
+                        if (w < 0 || w > 30) throw new Error("La razón de humedad debe estar entre 0 y 30 g/kg");
+                        RH = relativeHumidity(T, w);
+                        break;
+                        
+                    case 'T-Twb':
+                        T = parseFloat(document.getElementById('temp-twb').value);
+                        Twb = parseFloat(document.getElementById('twb').value);
+                        if (isNaN(T) || isNaN(Twb)) throw new Error("Por favor ingresa valores válidos");
+                        if (T < -20 || T > 60) throw new Error("La temperatura debe estar entre -20°C y 60°C");
+                        if (Twb > T) throw new Error("La temperatura de bulbo húmedo no puede ser mayor que la temperatura seca");
+                        w = absoluteHumidityFromWetBulb(T, Twb);
+                        RH = relativeHumidity(T, w);
+                        break;
+                        
+                    case 'T-h':
+                        T = parseFloat(document.getElementById('temp-h').value);
+                        h = parseFloat(document.getElementById('h').value);
+                        if (isNaN(T) || isNaN(h)) throw new Error("Por favor ingresa valores válidos");
+                        if (T < -20 || T > 60) throw new Error("La temperatura debe estar entre -20°C y 60°C");
+                        w = absoluteHumidityFromEnthalpy(T, h);
+                        if (w < 0) throw new Error("La combinación de temperatura y entalpía resulta en humedad negativa");
+                        RH = relativeHumidity(T, w);
+                        break;
+                        
+                    case 'T-Pv':
+                        T = parseFloat(document.getElementById('temp-pv').value);
+                        Pv = parseFloat(document.getElementById('pv').value);
+                        if (isNaN(T) || isNaN(Pv)) throw new Error("Por favor ingresa valores válidos");
+                        if (T < -20 || T > 60) throw new Error("La temperatura debe estar entre -20°C y 60°C");
+                        const Pv_Pa = Pv * 1000; // Convertir kPa a Pa
+                        if (Pv_Pa < 0 || Pv_Pa > ATMOSPHERIC_PRESSURE) throw new Error(`La presión de vapor debe estar entre 0 y ${(ATMOSPHERIC_PRESSURE / 1000).toFixed(1)} kPa`);
+                        w = absoluteHumidityFromPv(Pv_Pa);
+                        RH = relativeHumidity(T, w);
+                        break;
+                }
+                
+                // Calcular todos los demás parámetros
+                h = enthalpy(T, w);
+                Twb = wetBulbTemp(T, w);
+                Pv = vaporPressure(w);
+                Tdew = dewPointTemp(T, w);
+                Pvs = saturationPressure(T);
+                DPV = vaporPressureDeficit(T, w);
+                w_sat = saturationHumidity(T);
+                v = specificVolume(T, w);
+                rho = density(T, w);
+                
+                // Verificar que los valores sean válidos
+                if (RH > 100) {
+                    throw new Error("Los parámetros ingresados resultan en una humedad relativa superior al 100%");
+                }
+                
+                // Añadir el punto
+                const point = { T, RH, w, h, Twb, Pv, Tdew, Pvs, DPV, w_sat, v, rho };
+                markedPoints.push(point);
+                updatePointsList();
+                redraw();
+                
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        }
+        
+        function updatePointsList() {
+            const listDiv = document.getElementById('pointsList');
+            if (markedPoints.length === 0) {
+                listDiv.innerHTML = '<p style="color: #999; text-align: center;">No hay puntos marcados. Haz clic en el diagrama o usa los controles para añadir puntos.</p>';
+                return;
+            }
+            
+            listDiv.innerHTML = markedPoints.map((point, index) => {
+                const x = tempToX(point.T);
+                const y = humToY(point.w);
+                const isOutOfBounds = x < 100 || x > canvas.width - 100 || y < 50 || y > canvas.height - 50;
+                const outOfBoundsMsg = isOutOfBounds ? '<span style="color: #ff6600; font-weight: bold;">⚠ Punto fuera de los márgenes del diagrama</span><br>' : '';
+                
+                return `
+                <div class="result-item" style="${isOutOfBounds ? 'border-left-color: #ff6600;' : ''}">
+                    <span class="delete-point" onclick="deletePoint(${index})">✕</span>
+                    <div class="main-values">
+                        Punto ${index + 1}: T=${point.T.toFixed(1)}°C | HR=${point.RH.toFixed(0)}% | w=${point.w.toFixed(2)} g/kg
+                    </div>
+                    <div class="secondary-values">
+                        ${outOfBoundsMsg}h: ${point.h.toFixed(1)} kJ/kg<br>
+                        T<sub>bh</sub>: ${point.Twb.toFixed(1)}°C<br>
+                        T<sub>rocío</sub>: ${point.Tdew.toFixed(1)}°C<br>
+                        P<sub>v</sub>: ${(point.Pv / 1000).toFixed(3)} kPa<br>
+                        P<sub>vs</sub>: ${(point.Pvs / 1000).toFixed(3)} kPa<br>
+                        DPV: ${(point.DPV / 1000).toFixed(3)} kPa<br>
+                        w<sub>sat</sub>: ${point.w_sat.toFixed(2)} g/kg<br>
+                        ρ: ${point.rho.toFixed(3)} kg/m³<br>
+                        v: ${point.v.toFixed(3)} m³/kg
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+        
+        function deletePoint(index) {
+            markedPoints.splice(index, 1);
+            updatePointsList();
+            redraw();
+        }
+        
+        function clearPoints() {
+            if (markedPoints.length > 0 && confirm('¿Estás seguro de eliminar todos los puntos?')) {
+                markedPoints = [];
+                updatePointsList();
+                redraw();
+            }
+        }
+        
+        // Funciones de conversión para el canvas
+        function tempToX(T) {
+            return 100 + (T - TEMP_MIN) * (canvas.width - 200) / (TEMP_MAX - TEMP_MIN);
+        }
+        
+        function humToY(w) {
+            return canvas.height - 50 - (w - W_MIN) * (canvas.height - 100) / (W_MAX - W_MIN);
+        }
+        
+        function xToTemp(x) {
+            return TEMP_MIN + (x - 100) * (TEMP_MAX - TEMP_MIN) / (canvas.width - 200);
+        }
+        
+        function yToHum(y) {
+            return W_MIN + (canvas.height - 50 - y) * (W_MAX - W_MIN) / (canvas.height - 100);
+        }
+        
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Fondo
+            ctx.fillStyle = '#fafafa';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Área del gráfico
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(100, 50, canvas.width - 200, canvas.height - 100);
+            
+            // Grid lines - Temperatura
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            for (let T = TEMP_MIN; T <= TEMP_MAX; T += 1) {
+                const x = tempToX(T);
+                ctx.beginPath();
+                ctx.moveTo(x, 50);
+                ctx.lineTo(x, canvas.height - 50);
+                ctx.stroke();
+            }
+            
+            // Grid lines - Humedad
+            for (let w = W_MIN; w <= W_MAX; w += 1) {
+                const y = humToY(w);
+                ctx.beginPath();
+                ctx.moveTo(100, y);
+                ctx.lineTo(canvas.width - 100, y);
+                ctx.stroke();
+            }
+            
+            // Ejes principales
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(100, 50);
+            ctx.lineTo(100, canvas.height - 50);
+            ctx.lineTo(canvas.width - 100, canvas.height - 50);
+            ctx.stroke();
+            
+            // Etiquetas del eje X (Temperatura)
+            ctx.fillStyle = '#000000';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            for (let T = TEMP_MIN; T <= TEMP_MAX; T += 5) {
+                const x = tempToX(T);
+                ctx.fillText(T + '°C', x, canvas.height - 30);
+            }
+            
+            // Etiquetas del eje Y (Humedad)
+            ctx.textAlign = 'right';
+            for (let w = W_MIN; w <= W_MAX; w += 5) {
+                const y = humToY(w);
+                ctx.fillText(w + ' g/kg', 90, y + 5);
+            }
+            
+            // Curva de saturación (100% HR)
+            ctx.strokeStyle = '#0000ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let T = TEMP_MIN; T <= TEMP_MAX; T += 0.5) {
+                const w_sat = saturationHumidity(T);
+                const x = tempToX(T);
+                const y = humToY(w_sat);
+                if (T === TEMP_MIN) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+            
+            // Líneas de humedad relativa constante
+            const RH_values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+            ctx.strokeStyle = '#0000ff';
+            ctx.lineWidth = 0.5;
+            ctx.setLineDash([5, 5]);
+            
+            for (const RH of RH_values) {
+                ctx.beginPath();
+                let first = true;
+                for (let T = TEMP_MIN; T <= TEMP_MAX; T += 1) {
+                    const w = absoluteHumidity(T, RH);
+                    if (w <= W_MAX) {
+                        const x = tempToX(T);
+                        const y = humToY(w);
+                        if (first) {
+                            ctx.moveTo(x, y);
+                            first = false;
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                }
+                ctx.stroke();
+                
+                // Etiquetas para TODAS las líneas de RH
+                // Buscar una temperatura adecuada donde la línea sea visible
+                let T_label = TEMP_MAX - 5;
+                let w_label = absoluteHumidity(T_label, RH);
+                
+                // Si la humedad absoluta excede el máximo, buscar una temperatura más baja
+                while (w_label > W_MAX && T_label > TEMP_MIN) {
+                    T_label -= 5;
+                    w_label = absoluteHumidity(T_label, RH);
+                }
+                
+                if (w_label <= W_MAX && T_label > TEMP_MIN) {
+                    const x_label = tempToX(T_label);
+                    const y_label = humToY(w_label);
+                    ctx.fillStyle = '#0000ff';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(RH + '%', x_label + 5, y_label);
+                }
+            }
+            ctx.setLineDash([]);
+            
+            // Líneas de entalpía constante
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 0.5;
+            ctx.setLineDash([]);
+            
+            for (let h = 0; h <= 120; h += 5) {
+                ctx.beginPath();
+                let first = true;
+                for (let T = TEMP_MIN; T <= TEMP_MAX; T += 1) {
+                    const w = absoluteHumidityFromEnthalpy(T, h);
+                    if (w >= 0 && w <= W_MAX) {
+                        const x = tempToX(T);
+                        const y = humToY(w);
+                        if (first) {
+                            ctx.moveTo(x, y);
+                            first = false;
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                }
+                ctx.stroke();
+                
+                // Etiquetas para entalpía
+                if (h > 0 && h % 10 === 0) {
+                    const T = TEMP_MIN + 5;
+                    const w = absoluteHumidityFromEnthalpy(T, h);
+                    if (w >= 0 && w <= W_MAX) {
+                        const x = tempToX(T);
+                        const y = humToY(w);
+                        ctx.fillStyle = '#ff6600';
+                        ctx.font = '9px Arial';
+                        ctx.textAlign = 'left';
+                        ctx.fillText('h=' + h, x - 30, y - 5);
+                    }
+                }
+            }
+            ctx.setLineDash([]);
+            
+            // Líneas de temperatura de bulbo húmedo constante
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 0.5;
+            ctx.setLineDash([2, 3]);
+            
+            for (let Twb = 0; Twb <= 40; Twb += 1) {
+                ctx.beginPath();
+                let first = true;
+                for (let T = Twb; T <= TEMP_MAX; T += 1) {
+                    const w = absoluteHumidityFromWetBulb(T, Twb);
+                    if (w >= 0 && w <= W_MAX) {
+                        const x = tempToX(T);
+                        const y = humToY(w);
+                        if (first) {
+                            ctx.moveTo(x, y);
+                            first = false;
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                }
+                ctx.stroke();
+                
+                // Etiquetas para Twb
+                if (Twb > 0 && Twb % 5 === 0) {
+                    const T = Twb + 10;
+                    if (T <= TEMP_MAX) {
+                        const w = absoluteHumidityFromWetBulb(T, Twb);
+                        if (w <= W_MAX) {
+                            const x = tempToX(T);
+                            const y = humToY(w);
+                            ctx.fillStyle = '#000000';
+                            ctx.font = '9px Arial';
+                            ctx.fillText('T_bh=' + Twb + '°C', x - 15, y + 10);
+                        }
+                    }
+                }
+            }
+            ctx.setLineDash([]);
+            
+            // Escala de presión de vapor (eje derecho)
+            ctx.strokeStyle = '#666666';
+            ctx.lineWidth = 1;
+            ctx.font = '10px Arial';
+            ctx.fillStyle = '#666666';
+            
+            const pvX = canvas.width - 80;
+            ctx.beginPath();
+            ctx.moveTo(pvX, 50);
+            ctx.lineTo(pvX, canvas.height - 50);
+            ctx.stroke();
+            
+            // Ajustar escala de Pv según la presión atmosférica
+            const maxPv = Math.min(7000, ATMOSPHERIC_PRESSURE * 0.07); // Pa
+            for (let pv = 0; pv <= maxPv; pv += 100) { // Incrementos de 100 Pa = 0.1 kPa
+                const w = absoluteHumidityFromPv(pv);
+                if (w <= W_MAX) {
+                    const y = humToY(w);
+                    ctx.beginPath();
+                    ctx.moveTo(pvX - 5, y);
+                    ctx.lineTo(pvX + 5, y);
+                    ctx.stroke();
+                    if (pv % 1000 === 0) { // Etiquetas cada 1000 Pa = 1 kPa
+                        ctx.fillText((pv / 1000).toFixed(1) + ' kPa', pvX + 10, y + 3);
+                    }
+                }
+            }
+            
+            // Etiquetas de los ejes
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText('Temperatura de bulbo seco (°C)', canvas.width/2 - 100, canvas.height - 10);
+            
+            ctx.save();
+            ctx.translate(20, canvas.height/2);
+            ctx.rotate(-Math.PI/2);
+            ctx.fillText('Razón de humedad (g/kg)', -100, 0);
+            ctx.restore();
+            
+            ctx.save();
+            ctx.translate(canvas.width - 20, canvas.height/2);
+            ctx.rotate(Math.PI/2);
+            ctx.fillText('Presión de vapor (kPa)', -80, 0);
+            ctx.restore();
+            
+            // Título con presión actual
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Diagrama Psicrométrico (P = ${(ATMOSPHERIC_PRESSURE / 1000).toFixed(1)} kPa)`, canvas.width/2, 30);
+            ctx.textAlign = 'left';
+        }
+        
+        function drawPoints() {
+            markedPoints.forEach((point, index) => {
+                const x = tempToX(point.T);
+                const y = humToY(point.w);
+                
+                // Validar que el punto esté dentro del canvas
+                if (x < 100 || x > canvas.width - 100 || y < 50 || y > canvas.height - 50) {
+                    return; // No dibujar puntos fuera del área válida
+                }
+                
+                // Sombra del punto
+                ctx.beginPath();
+                ctx.arc(x + 1, y + 1, 6, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fill();
+                
+                // Punto principal
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#ff0000';
+                ctx.fill();
+                ctx.strokeStyle = '#800000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Número del punto
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText((index + 1).toString(), x, y);
+                
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'alphabetic';
+            });
+        }
+        
+        function redraw() {
+            drawGrid();
+            drawPoints();
+        }
+        
+        // Evento de movimiento del ratón para mostrar valores
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+            
+            if (x >= 100 && x <= canvas.width - 100 && y >= 50 && y <= canvas.height - 50) {
+                const T = xToTemp(x);
+                const w = yToHum(y);
+                const RH = relativeHumidity(T, w);
+                const h = enthalpy(T, w);
+                const Twb = wetBulbTemp(T, w);
+                const Pv = vaporPressure(w);
+                const Tdew = dewPointTemp(T, w);
+                const v = specificVolume(T, w);
+                const rho = density(T, w);
+                
+                tooltip.innerHTML = `
+                    <strong>T:</strong> ${T.toFixed(1)}°C<br>
+                    <strong>w:</strong> ${w.toFixed(2)} g/kg<br>
+                    <strong>HR:</strong> ${RH.toFixed(0)}%<br>
+                    <strong>h:</strong> ${h.toFixed(1)} kJ/kg<br>
+                    <strong>T<sub>bh</sub>:</strong> ${Twb.toFixed(1)}°C<br>
+                    <strong>T<sub>rocío</sub>:</strong> ${Tdew.toFixed(1)}°C<br>
+                    <strong>P<sub>v</sub>:</strong> ${(Pv / 1000).toFixed(3)} kPa<br>
+                    <strong>P<sub>atm</sub>:</strong> ${(ATMOSPHERIC_PRESSURE / 1000).toFixed(1)} kPa<br>
+                    <strong>ρ:</strong> ${rho.toFixed(3)} kg/m³<br>
+                    <strong>v:</strong> ${v.toFixed(3)} m³/kg
+                `;
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 10) + 'px';
+                tooltip.style.top = (e.clientY - 100) + 'px';
+            } else {
+                tooltip.style.display = 'none';
+            }
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+        });
+        
+        // Click en el canvas para añadir punto
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+            
+            if (x >= 100 && x <= canvas.width - 100 && y >= 50 && y <= canvas.height - 50) {
+                const T = xToTemp(x);
+                const w = yToHum(y);
+                const RH = relativeHumidity(T, w);
+                const h = enthalpy(T, w);
+                const Twb = wetBulbTemp(T, w);
+                const Pv = vaporPressure(w);
+                const Tdew = dewPointTemp(T, w);
+                const Pvs = saturationPressure(T);
+                const DPV = vaporPressureDeficit(T, w);
+                const w_sat = saturationHumidity(T);
+                const v = specificVolume(T, w);
+                const rho = density(T, w);
+                
+                // Añadir el punto con todos los parámetros
+                const point = { T, RH, w, h, Twb, Pv, Tdew, Pvs, DPV, w_sat, v, rho };
+                markedPoints.push(point);
+                updatePointsList();
+                redraw();
+                
+                // Actualizar los campos de entrada con los valores del punto
+                switch(currentMethod) {
+                    case 'T-RH':
+                        document.getElementById('temp-rh').value = T.toFixed(1);
+                        document.getElementById('rh').value = RH.toFixed(0);
+                        break;
+                    case 'T-W':
+                        document.getElementById('temp-w').value = T.toFixed(1);
+                        document.getElementById('w').value = w.toFixed(2);
+                        break;
+                    case 'T-Twb':
+                        document.getElementById('temp-twb').value = T.toFixed(1);
+                        document.getElementById('twb').value = Twb.toFixed(1);
+                        break;
+                    case 'T-h':
+                        document.getElementById('temp-h').value = T.toFixed(1);
+                        document.getElementById('h').value = h.toFixed(1);
+                        break;
+                    case 'T-Pv':
+                        document.getElementById('temp-pv').value = T.toFixed(1);
+                        document.getElementById('pv').value = (Pv / 1000).toFixed(3);
+                        break;
+                }
+            }
+        });
+        
+        // Atajos de teclado
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (markedPoints.length > 0 && !e.target.matches('input')) {
+                    e.preventDefault();
+                    markedPoints.pop();
+                    updatePointsList();
+                    redraw();
+                }
+            }
+            if (e.key === 'Escape') {
+                clearPoints();
+            }
+        });
+        
+        // Función para descargar el diagrama como SVG (calidad vectorial infinita)
+        function downloadSVG() {
+            const width = 1200; // Tamaño del SVG
+            const height = 800;
+            
+            // Crear SVG
+            let svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Fondo -->
+    <rect width="${width}" height="${height}" fill="#ffffff"/>
+    
+    <!-- Área del gráfico -->
+    <rect x="100" y="50" width="${width-200}" height="${height-100}" fill="#ffffff" stroke="#000000" stroke-width="1"/>
+    
+`;
+            
+            // Grid lines - Temperatura
+            for (let T = TEMP_MIN; T <= TEMP_MAX; T += 1) {
+                const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+                svg += `    <line x1="${x}" y1="50" x2="${x}" y2="${height-50}" stroke="#e0e0e0" stroke-width="1"/>\n`;
+            }
+            
+            // Grid lines - Humedad
+            for (let w = W_MIN; w <= W_MAX; w += 1) {
+                const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                svg += `    <line x1="100" y1="${y}" x2="${width-100}" y2="${y}" stroke="#e0e0e0" stroke-width="1"/>\n`;
+            }
+            
+            // Ejes principales
+            svg += `    <line x1="100" y1="50" x2="100" y2="${height-50}" stroke="#000000" stroke-width="2"/>\n`;
+            svg += `    <line x1="100" y1="${height-50}" x2="${width-100}" y2="${height-50}" stroke="#000000" stroke-width="2"/>\n`;
+            
+            // Etiquetas del eje X (Temperatura)
+            for (let T = TEMP_MIN; T <= TEMP_MAX; T += 5) {
+                const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+                svg += `    <text x="${x}" y="${height-30}" text-anchor="middle" font-family="Arial" font-size="12" fill="#000000">${T}°C</text>\n`;
+            }
+            
+            // Etiquetas del eje Y (Humedad)
+            for (let w = W_MIN; w <= W_MAX; w += 5) {
+                const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                svg += `    <text x="90" y="${y+5}" text-anchor="end" font-family="Arial" font-size="12" fill="#000000">${w} g/kg</text>\n`;
+            }
+            
+            // Líneas de humedad relativa constante
+            const RH_values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+            for (const RH of RH_values) {
+                let pathData = '';
+                let first = true;
+                for (let T = TEMP_MIN; T <= TEMP_MAX; T += 0.5) {
+                    const w = absoluteHumidity(T, RH);
+                    if (w <= W_MAX && w >= W_MIN) {
+                        const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+                        const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                        if (first) {
+                            pathData += `M ${x} ${y} `;
+                            first = false;
+                        } else {
+                            pathData += `L ${x} ${y} `;
+                        }
+                    }
+                }
+                svg += `    <path d="${pathData}" fill="none" stroke="#0000ff" stroke-width="0.5" stroke-dasharray="5,5"/>\n`;
+                
+                // Etiquetas para HR
+                let T_label = TEMP_MAX - 5;
+                let w_label = absoluteHumidity(T_label, RH);
+                while (w_label > W_MAX && T_label > TEMP_MIN) {
+                    T_label -= 5;
+                    w_label = absoluteHumidity(T_label, RH);
+                }
+                if (w_label <= W_MAX && T_label > TEMP_MIN) {
+                    const x_label = 100 + ((T_label - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+                    const y_label = height - 50 - ((w_label - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                    svg += `    <text x="${x_label+5}" y="${y_label}" font-family="Arial" font-size="10" fill="#0000ff">${RH}%</text>\n`;
+                }
+            }
+            
+            // Líneas de entalpía constante (negras continuas)
+            for (let h = 0; h <= 120; h += 5) {
+                let pathData = '';
+                let first = true;
+                for (let T = TEMP_MIN; T <= TEMP_MAX; T += 0.5) {
+                    const w = absoluteHumidityFromEnthalpy(T, h);
+                    if (w >= 0 && w <= W_MAX) {
+                        const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+                        const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                        if (first) {
+                            pathData += `M ${x} ${y} `;
+                            first = false;
+                        } else {
+                            pathData += `L ${x} ${y} `;
+                        }
+                    }
+                }
+                if (pathData) {
+                    svg += `    <path d="${pathData}" fill="none" stroke="#000000" stroke-width="0.5"/>\n`;
+                    
+                    // Etiquetas para entalpía
+                    if (h > 0 && h % 10 === 0) {
+                        const T = TEMP_MIN + 5;
+                        const w = absoluteHumidityFromEnthalpy(T, h);
+                        if (w >= 0 && w <= W_MAX) {
+                            const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+                            const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                            svg += `    <text x="${x-15}" y="${y+10}" font-family="Arial" font-size="9" fill="#000000">h=${h}</text>\n`;
+                        }
+                    }
+                }
+            }
+            
+            // Líneas de temperatura de bulbo húmedo (negras punteadas)
+            for (let Twb = 0; Twb <= 40; Twb += 1) {
+                let pathData = '';
+                let first = true;
+                for (let T = Twb; T <= TEMP_MAX; T += 0.5) {
+                    const w = absoluteHumidityFromWetBulb(T, Twb);
+                    if (w >= 0 && w <= W_MAX) {
+                        const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+                        const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                        if (first) {
+                            pathData += `M ${x} ${y} `;
+                            first = false;
+                        } else {
+                            pathData += `L ${x} ${y} `;
+                        }
+                    }
+                }
+                if (pathData) {
+                    svg += `    <path d="${pathData}" fill="none" stroke="#000000" stroke-width="0.5" stroke-dasharray="2,3"/>\n`;
+                    
+                    // Etiquetas para Twb
+                    if (Twb > 0 && Twb % 5 === 0) {
+                        const T = Twb + 10;
+                        if (T <= TEMP_MAX) {
+                            const w = absoluteHumidityFromWetBulb(T, Twb);
+                            if (w <= W_MAX) {
+                                const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+                                const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                                svg += `    <text x="${x-15}" y="${y+10}" font-family="Arial" font-size="9" fill="#000000">T_bh=${Twb}°C</text>\n`;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Etiquetas de los ejes
+            svg += `    <text x="${width/2}" y="${height-10}" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#000000">Temperatura de bulbo seco (°C)</text>\n`;
+            svg += `    <text x="20" y="${height/2}" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#000000" transform="rotate(-90, 20, ${height/2})">Razón de humedad (g/kg)</text>\n`;
+            
+            // Eje de presión de vapor (derecho)
+            const pvX = width - 80;
+            svg += `    <line x1="${pvX}" y1="50" x2="${pvX}" y2="${height-50}" stroke="#666666" stroke-width="1"/>\n`;
+            
+            // Escala de presión de vapor
+            const maxPv = Math.min(7000, ATMOSPHERIC_PRESSURE * 0.07); // Pa
+            for (let pv = 0; pv <= maxPv; pv += 100) {
+                const w = absoluteHumidityFromPv(pv);
+                if (w <= W_MAX) {
+                    const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                    svg += `    <line x1="${pvX-5}" y1="${y}" x2="${pvX+5}" y2="${y}" stroke="#666666" stroke-width="1"/>\n`;
+                    if (pv % 1000 === 0) {
+                        svg += `    <text x="${pvX+10}" y="${y+3}" font-family="Arial" font-size="10" fill="#666666">${(pv/1000).toFixed(1)} kPa</text>\n`;
+                    }
+                }
+            }
+            
+            // Etiqueta del eje de presión de vapor
+            svg += `    <text x="${width-20}" y="${height/2}" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#000000" transform="rotate(90, ${width-20}, ${height/2})">Presión de vapor (kPa)</text>\n`;
+            
+            // Título
+            svg += `    <text x="${width/2}" y="30" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#000000">Diagrama Psicrométrico (P = ${(ATMOSPHERIC_PRESSURE / 1000).toFixed(1)} kPa)</text>\n`;
+            
+            // Dibujar puntos marcados
+            markedPoints.forEach((point, index) => {
+                const x = 100 + ((point.T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+                const y = height - 50 - ((point.w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                
+                if (x >= 100 && x <= width - 100 && y >= 50 && y <= height - 50) {
+                    // Punto
+                    svg += `    <circle cx="${x}" cy="${y}" r="5" fill="#ff0000" stroke="#800000" stroke-width="2"/>\n`;
+                    // Número
+                    svg += `    <text x="${x}" y="${y+5}" text-anchor="middle" font-family="Arial" font-size="10" font-weight="bold" fill="#ffffff">${index + 1}</text>\n`;
+                }
+            });
+            
+            svg += `</svg>`;
+            
+            // Descargar el SVG
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const fecha = new Date().toISOString().slice(0, 10);
+            link.download = `diagrama-psicrometrico_${fecha}_${(ATMOSPHERIC_PRESSURE / 1000).toFixed(1)}kPa.svg`;
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // Inicializar
+        updatePressureDisplay();
+        drawGrid();
+        updatePointsList();
+    </script>
+</body>
+</html>
