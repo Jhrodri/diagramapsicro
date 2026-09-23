@@ -497,6 +497,7 @@
                     <div id="pointsList"></div>
                     <button class="clear" onclick="clearPoints()">Limpiar todos los puntos</button>
                     <button onclick="downloadSVG()" style="background-color: #2196F3; margin-top: 10px;">📥 Descargar Diagrama SVG</button>
+                    <button onclick="downloadExcel()" style="background-color: #217346; margin-top: 10px;">📊 Descargar datos en Excel (.xlsx)</button>
                 </div>
                 
                 <div class="legend">
@@ -972,8 +973,9 @@
         }
         
         function relativeHumidity(T, w) {
-            const w_sat = saturationHumidity(T);
-            return Math.min(100, (w / w_sat) * 100);
+            // HR = Pv / Pvs (definición). El cociente w / w_sat es el grado de saturación,
+            // que difiere ligeramente de la HR.
+            return Math.min(100, (vaporPressure(w) / saturationPressure(T)) * 100);
         }
         
         function enthalpy(T, w) {
@@ -1056,7 +1058,9 @@
         function absoluteHumidityFromWetBulb(T, Twb) {
             // Ecuación psicrométrica simplificada (ASHRAE)
             const Pvs_wb = saturationPressure(Twb); // Pa
-            const A = 0.00066 * (ATMOSPHERIC_PRESSURE / 101325); // Factor psicrométrico ajustado
+            // Pv = Pvs(Tbh) − A · P · (T − Tbh), con A = 6,6·10⁻⁴ K⁻¹ (psicrómetro ventilado).
+            // La dependencia con la altitud ya está en P; A no debe escalarse con la presión.
+            const A = 0.00066; // K⁻¹
             const Pv = Pvs_wb - A * ATMOSPHERIC_PRESSURE * (T - Twb);
             return absoluteHumidityFromPv(Pv); // g/kg
         }
@@ -1152,7 +1156,7 @@
                 }
                 
                 // Añadir el punto
-                const point = { T, RH, w, h, Twb, Pv, Tdew, Pvs, DPV, w_sat, v, rho };
+                const point = { T, RH, w, h, Twb, Pv, Tdew, Pvs, DPV, w_sat, v, rho, P: ATMOSPHERIC_PRESSURE, origen: 'Entrada ' + currentMethod };
                 markedPoints.push(point);
                 updatePointsList();
                 redraw();
@@ -1581,7 +1585,7 @@
                 const rho = density(T, w);
                 
                 // Añadir el punto con todos los parámetros
-                const point = { T, RH, w, h, Twb, Pv, Tdew, Pvs, DPV, w_sat, v, rho };
+                const point = { T, RH, w, h, Twb, Pv, Tdew, Pvs, DPV, w_sat, v, rho, P: ATMOSPHERIC_PRESSURE, origen: 'Clic en diagrama' };
                 markedPoints.push(point);
                 updatePointsList();
                 redraw();
@@ -1826,6 +1830,180 @@
             URL.revokeObjectURL(url);
         }
         
+        // ===== Exportación a Excel (.xlsx) sin librerías externas =====
+        const XLSX_CRC_TABLE = (() => {
+            const t = new Uint32Array(256);
+            for (let n = 0; n < 256; n++) {
+                let c = n;
+                for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                t[n] = c >>> 0;
+            }
+            return t;
+        })();
+
+        function xlsxCrc32(bytes) {
+            let c = 0xFFFFFFFF;
+            for (let i = 0; i < bytes.length; i++) c = XLSX_CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+            return (c ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        // Crea un ZIP sin compresión (método "store") a partir de [{name, text}]
+        function xlsxZip(files) {
+            const enc = new TextEncoder();
+            const parts = [], central = [];
+            let offset = 0;
+            const u16 = v => [v & 0xFF, (v >>> 8) & 0xFF];
+            const u32 = v => [v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF];
+            for (const f of files) {
+                const name = enc.encode(f.name), data = enc.encode(f.text), crc = xlsxCrc32(data);
+                const common = [...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21),
+                                ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)];
+                const local = new Uint8Array([...u32(0x04034b50), ...common]);
+                parts.push(local, name, data);
+                central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...common,
+                                             ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)]), name);
+                offset += local.length + name.length + data.length;
+            }
+            const cdSize = central.reduce((s, a) => s + a.length, 0);
+            const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length),
+                                        ...u32(cdSize), ...u32(offset), ...u16(0)]);
+            return new Blob([...parts, ...central, end], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        }
+
+        function xlsxEsc(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function xlsxColName(i) {
+            let s = '';
+            i++;
+            while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); }
+            return s;
+        }
+
+        // rows: array de arrays; cada celda es {v, s} o un valor simple. s = índice de estilo
+        function xlsxSheet(rows, widths) {
+            let x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+                    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+            x += '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+            if (widths) x += '<cols>' + widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>';
+            x += '<sheetData>';
+            rows.forEach((row, r) => {
+                x += `<row r="${r + 1}">`;
+                row.forEach((cell, c) => {
+                    if (cell === null || cell === undefined || cell === '') return;
+                    const o = (typeof cell === 'object') ? cell : { v: cell };
+                    const ref = xlsxColName(c) + (r + 1);
+                    const st = o.s ? ` s="${o.s}"` : '';
+                    if (typeof o.v === 'number' && isFinite(o.v)) x += `<c r="${ref}"${st}><v>${o.v}</v></c>`;
+                    else x += `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${xlsxEsc(o.v)}</t></is></c>`;
+                });
+                x += '</row>';
+            });
+            return x + '</sheetData></worksheet>';
+        }
+
+        function buildXlsx(sheets) {
+            const ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+                '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+                '<Default Extension="xml" ContentType="application/xml"/>' +
+                '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+                '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+                sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') +
+                '</Types>';
+            const rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+            const wb = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+                sheets.map((s, i) => `<sheet name="${xlsxEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets></workbook>';
+            const wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+                sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') +
+                `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+            // Estilos: 0 normal | 1 cabecera | 2 "0.0" | 3 "0.00" | 4 "0.000" | 5 negrita | 6 fecha-hora
+            const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+                '<numFmts count="4"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="0.00"/><numFmt numFmtId="166" formatCode="0.000"/><numFmt numFmtId="167" formatCode="dd/mm/yyyy hh:mm"/></numFmts>' +
+                '<fonts count="3"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts>' +
+                '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF2196F3"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+                '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+                '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+                '<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+                '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' +
+                '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+                '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+                '<xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
+                '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+                '<xf numFmtId="167" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>' +
+                '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+            const files = [
+                { name: '[Content_Types].xml', text: ct },
+                { name: '_rels/.rels', text: rels },
+                { name: 'xl/workbook.xml', text: wb },
+                { name: 'xl/_rels/workbook.xml.rels', text: wbRels },
+                { name: 'xl/styles.xml', text: styles },
+                ...sheets.map((s, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, text: xlsxSheet(s.rows, s.widths) }))
+            ];
+            return xlsxZip(files);
+        }
+
+        // Construye las hojas a partir de los puntos marcados
+        function buildPointsWorkbook(points, pressureNow, dateNow) {
+            const H = t => ({ v: t, s: 1 });
+            const n = (v, s) => ({ v: Number(v), s });
+            const header = ['Punto', 'Origen', 'P atm (kPa)', 'T (°C)', 'HR (%)', 'w (g/kg)', 'w sat (g/kg)',
+                            'h (kJ/kg)', 'T bulbo húmedo (°C)', 'T rocío (°C)', 'Pv (kPa)', 'Pvs (kPa)',
+                            'DPV (kPa)', 'Densidad (kg/m³)', 'Vol. específico (m³/kg)'].map(H);
+            const rows = [header];
+            points.forEach((p, i) => {
+                rows.push([
+                    n(i + 1), p.origen || '', n((p.P || pressureNow) / 1000, 3),
+                    n(p.T, 3), n(p.RH, 2), n(p.w, 3), n(p.w_sat, 3),
+                    n(p.h, 3), n(p.Twb, 3), n(p.Tdew, 3),
+                    n(p.Pv / 1000, 4), n(p.Pvs / 1000, 4), n(p.DPV / 1000, 4),
+                    n(p.rho, 4), n(p.v, 4)
+                ]);
+            });
+            const excelDate = dateNow.getTime() / 86400000 + 25569 - dateNow.getTimezoneOffset() / 1440;
+            const info = [
+                [H('Campo'), H('Valor')],
+                [{ v: 'Fecha de exportación', s: 5 }, { v: excelDate, s: 6 }],
+                [{ v: 'Presión atmosférica actual (kPa)', s: 5 }, n(pressureNow / 1000, 3)],
+                [{ v: 'Altitud equivalente (m)', s: 5 }, n(Math.round(pressureToAltitude(pressureNow)), 0)],
+                [{ v: 'Número de puntos', s: 5 }, n(points.length, 0)],
+                [],
+                [{ v: 'Ecuaciones empleadas', s: 5 }],
+                ['Presión de saturación', 'ASHRAE (Hyland y Wexler), en Pa'],
+                ['Razón de humedad', 'w = 0,62198 · Pv / (P − Pv)'],
+                ['Entalpía', 'h = 1,006 · T + w · (2501 + 1,805 · T)  [kJ/kg aire seco]'],
+                ['Volumen específico', 'v = 287,1 · (T + 273,15) · (1 + 1,6078 · w) / P'],
+                ['Densidad', 'ρ = (1 + w) / v'],
+                ['DPV', 'DPV = Pvs − Pv'],
+                [],
+                ['Nota', 'Cada punto conserva la presión atmosférica con la que se calculó (columna "P atm").'],
+                ['Fuente', 'Diagrama psicrométrico interactivo — https://jhrodri.github.io/diagramapsicro/']
+            ];
+            return buildXlsx([
+                { name: 'Puntos', rows, widths: [8, 11, 12, 9, 9, 10, 12, 11, 14, 12, 10, 10, 10, 14, 17] },
+                { name: 'Información', rows: info, widths: [34, 70] }
+            ]);
+        }
+
+        function downloadExcel() {
+            if (markedPoints.length === 0) {
+                alert('No hay puntos marcados. Añade al menos un punto antes de exportar.');
+                return;
+            }
+            const now = new Date();
+            const blob = buildPointsWorkbook(markedPoints, ATMOSPHERIC_PRESSURE, now);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const fecha = now.toISOString().slice(0, 10);
+            link.download = `datos-psicrometricos_${fecha}_${(ATMOSPHERIC_PRESSURE / 1000).toFixed(1)}kPa.xlsx`;
+            link.href = url;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
         // Inicializar
         updatePressureDisplay();
         drawGrid();
