@@ -1243,20 +1243,21 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(100, 50, canvas.width - 200, canvas.height - 100);
             
-            // Grid lines - Temperatura
-            ctx.strokeStyle = '#e0e0e0';
+            // Grid lines - Temperatura (más marcada cada 5 °C)
             ctx.lineWidth = 1;
             for (let T = TEMP_MIN; T <= TEMP_MAX; T += 1) {
                 const x = tempToX(T);
+                ctx.strokeStyle = (T % 5 === 0) ? '#b0b0b0' : '#e0e0e0';
                 ctx.beginPath();
                 ctx.moveTo(x, 50);
                 ctx.lineTo(x, canvas.height - 50);
                 ctx.stroke();
             }
-            
-            // Grid lines - Humedad
+
+            // Grid lines - Humedad (más marcada cada 5 g/kg)
             for (let w = W_MIN; w <= W_MAX; w += 1) {
                 const y = humToY(w);
+                ctx.strokeStyle = (w % 5 === 0) ? '#b0b0b0' : '#e0e0e0';
                 ctx.beginPath();
                 ctx.moveTo(100, y);
                 ctx.lineTo(canvas.width - 100, y);
@@ -1272,20 +1273,43 @@
             ctx.lineTo(canvas.width - 100, canvas.height - 50);
             ctx.stroke();
             
-            // Etiquetas del eje X (Temperatura)
+            // Ticks exteriores del eje X (cada 1 °C; más largos cada 5 °C)
+            const yAxisX = canvas.height - 50;
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            for (let T = TEMP_MIN; T <= TEMP_MAX; T += 1) {
+                const x = tempToX(T);
+                const len = (T % 5 === 0) ? 9 : 4;
+                ctx.beginPath();
+                ctx.moveTo(x, yAxisX);
+                ctx.lineTo(x, yAxisX + len);
+                ctx.stroke();
+            }
+
+            // Ticks exteriores del eje Y (cada 1 g/kg; más largos cada 5 g/kg)
+            for (let w = W_MIN; w <= W_MAX; w += 1) {
+                const y = humToY(w);
+                const len = (w % 5 === 0) ? 9 : 4;
+                ctx.beginPath();
+                ctx.moveTo(100, y);
+                ctx.lineTo(100 - len, y);
+                ctx.stroke();
+            }
+
+            // Etiquetas del eje X (Temperatura), bajo el tick
             ctx.fillStyle = '#000000';
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
             for (let T = TEMP_MIN; T <= TEMP_MAX; T += 5) {
                 const x = tempToX(T);
-                ctx.fillText(T + '°C', x, canvas.height - 30);
+                ctx.fillText(T + '°C', x, yAxisX + 22);
             }
-            
-            // Etiquetas del eje Y (Humedad)
+
+            // Etiquetas del eje Y (Humedad), a la izquierda del tick
             ctx.textAlign = 'right';
             for (let w = W_MIN; w <= W_MAX; w += 5) {
                 const y = humToY(w);
-                ctx.fillText(w + ' g/kg', 90, y + 5);
+                ctx.fillText(w + ' g/kg', 88, y + 4);
             }
             
             // Curva de saturación (100% HR)
@@ -1647,32 +1671,48 @@
     
 `;
             
-            // Grid lines - Temperatura
+            // Grid lines - Temperatura (más marcada cada 5 °C)
             for (let T = TEMP_MIN; T <= TEMP_MAX; T += 1) {
                 const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
-                svg += `    <line x1="${x}" y1="50" x2="${x}" y2="${height-50}" stroke="#e0e0e0" stroke-width="1"/>\n`;
+                const gc = (T % 5 === 0) ? '#b0b0b0' : '#e0e0e0';
+                svg += `    <line x1="${x}" y1="50" x2="${x}" y2="${height-50}" stroke="${gc}" stroke-width="1"/>\n`;
             }
-            
-            // Grid lines - Humedad
+
+            // Grid lines - Humedad (más marcada cada 5 g/kg)
             for (let w = W_MIN; w <= W_MAX; w += 1) {
                 const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
-                svg += `    <line x1="100" y1="${y}" x2="${width-100}" y2="${y}" stroke="#e0e0e0" stroke-width="1"/>\n`;
+                const gc = (w % 5 === 0) ? '#b0b0b0' : '#e0e0e0';
+                svg += `    <line x1="100" y1="${y}" x2="${width-100}" y2="${y}" stroke="${gc}" stroke-width="1"/>\n`;
             }
             
             // Ejes principales
             svg += `    <line x1="100" y1="50" x2="100" y2="${height-50}" stroke="#000000" stroke-width="2"/>\n`;
             svg += `    <line x1="100" y1="${height-50}" x2="${width-100}" y2="${height-50}" stroke="#000000" stroke-width="2"/>\n`;
             
-            // Etiquetas del eje X (Temperatura)
+            // Ticks exteriores del eje X (cada 1 °C; más largos cada 5 °C)
+            for (let T = TEMP_MIN; T <= TEMP_MAX; T += 1) {
+                const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+                const len = (T % 5 === 0) ? 9 : 4;
+                svg += `    <line x1="${x}" y1="${height-50}" x2="${x}" y2="${height-50+len}" stroke="#000000" stroke-width="1"/>\n`;
+            }
+
+            // Ticks exteriores del eje Y (cada 1 g/kg; más largos cada 5 g/kg)
+            for (let w = W_MIN; w <= W_MAX; w += 1) {
+                const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+                const len = (w % 5 === 0) ? 9 : 4;
+                svg += `    <line x1="100" y1="${y}" x2="${100-len}" y2="${y}" stroke="#000000" stroke-width="1"/>\n`;
+            }
+
+            // Etiquetas del eje X (Temperatura), bajo el tick
             for (let T = TEMP_MIN; T <= TEMP_MAX; T += 5) {
                 const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
-                svg += `    <text x="${x}" y="${height-30}" text-anchor="middle" font-family="Arial" font-size="12" fill="#000000">${T}°C</text>\n`;
+                svg += `    <text x="${x}" y="${height-28}" text-anchor="middle" font-family="Arial" font-size="12" fill="#000000">${T}°C</text>\n`;
             }
-            
-            // Etiquetas del eje Y (Humedad)
+
+            // Etiquetas del eje Y (Humedad), a la izquierda del tick
             for (let w = W_MIN; w <= W_MAX; w += 5) {
                 const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
-                svg += `    <text x="90" y="${y+5}" text-anchor="end" font-family="Arial" font-size="12" fill="#000000">${w} g/kg</text>\n`;
+                svg += `    <text x="88" y="${y+4}" text-anchor="end" font-family="Arial" font-size="12" fill="#000000">${w} g/kg</text>\n`;
             }
             
             // Líneas de humedad relativa constante
