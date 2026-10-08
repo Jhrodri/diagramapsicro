@@ -249,7 +249,7 @@
             margin: 5px 0;
         }
         .legend-color {
-            width: 20px;
+            width: 28px;
             height: 2px;
             margin-right: 10px;
         }
@@ -411,7 +411,7 @@
                 </div>
             </div>
         </div>
-        <h4>Introducción</h4>
+        <h4></h4>
         <div class="main-content">
             <div class="canvas-container">
                 <canvas id="mollierCanvas"></canvas>
@@ -501,19 +501,27 @@
                 </div>
                 
                 <div class="legend">
-                    <h4>Leyenda</h4>
-                   
+                    <h4>Leyenda <span style="font-weight:normal; color:#666;">(marca o desmarca para mostrar u ocultar)</span></h4>
                     <div class="legend-item">
-                        <div class="legend-color" style="border-top: 2px solid #0000ff; background-color: transparent;"></div>
-                        <span>Líneas de humedad relativa constante</span>
-                        </div>                        
-                    <div class="legend-item">
-                        <div class="legend-color" style="border-top: 2px solid #000000; background-color: transparent;"></div>
-                        <span>Líneas de entalpía constante</span>
-                        </div>                     <div class="legend-item">
-                        <div class="legend-color" style="border-top: 2px dotted #000000; background-color: transparent;"></div>
-                        <span>Líneas de temperatura de bulbo húmedo</span>
-                        </div>              
+                        <span style="width:16px; margin-right:6px;"></span>
+                        <div class="legend-color" style="border-top: 3px solid #0033aa; background-color: transparent;"></div>
+                        <span>Curva de saturación (HR = 100 %)</span>
+                    </div>
+                    <label class="legend-item" style="cursor:pointer; font-weight:normal; font-size:12px; margin:5px 0; color:inherit;">
+                        <input type="checkbox" checked onchange="toggleFamily('rh', this.checked)" style="width:16px; margin:0 6px 0 0;">
+                        <div class="legend-color" style="border-top: 2px dashed #2a62ff; background-color: transparent;"></div>
+                        <span>Humedad relativa constante (%)</span>
+                    </label>
+                    <label class="legend-item" style="cursor:pointer; font-weight:normal; font-size:12px; margin:5px 0; color:inherit;">
+                        <input type="checkbox" checked onchange="toggleFamily('h', this.checked)" style="width:16px; margin:0 6px 0 0;">
+                        <div class="legend-color" style="border-top: 2px solid #e06000; background-color: transparent;"></div>
+                        <span>Entalpía constante, h (kJ/kg)</span>
+                    </label>
+                    <label class="legend-item" style="cursor:pointer; font-weight:normal; font-size:12px; margin:5px 0; color:inherit;">
+                        <input type="checkbox" checked onchange="toggleFamily('twb', this.checked)" style="width:16px; margin:0 6px 0 0;">
+                        <div class="legend-color" style="border-top: 2px dashed #1a8f3a; background-color: transparent;"></div>
+                        <span>Temperatura de bulbo húmedo, Tbh (°C)</span>
+                    </label>
                 <div class="info-text">
                     💡 <strong>Consejo:</strong> Haz clic en el diagrama para agregar un punto directamente, o ingresa valores usando los campos de arriba.
                 </div>
@@ -644,7 +652,7 @@
             
             <h4>Volumen Específico (v)</h4>
             <p>
-                Es el volumen ocupado por un kilogramo de aire seco más el vapor de agua asociado, expresado en metros cúbicos por kilogramo (m³/kg).
+                Es el volumen ocupado por un kilogramo de aire seco más el vapor de agua asociado, expresado en metros cúbicos por kilogramo (m³/kg). 
             </p>
             <p>
                 <strong>Fórmula:</strong> v = 287.1 × (T + 273.15) × (1 + 1.6078 × w) / P [m³/kg]<br>
@@ -1232,6 +1240,100 @@
             return W_MIN + (canvas.height - 50 - y) * (W_MAX - W_MIN) / (canvas.height - 100);
         }
         
+
+        // ===== Estilo y visibilidad de las familias de líneas =====
+        const LINE_STYLE = {
+            sat: { color: '#0033aa', width: 2.6, dash: [] },
+            rh:  { color: '#2a62ff', width: 1.1, dash: [8, 4] },
+            h:   { color: '#e06000', width: 1.1, dash: [] },        // cada 10 kJ/kg (etiquetadas)
+            hMinor:   { color: '#f0a060', width: 0.6, dash: [] },   // intermedias (cada 5 kJ/kg)
+            twb: { color: '#1a8f3a', width: 1.1, dash: [4, 3] },    // cada 5 °C (etiquetadas)
+            twbMinor: { color: '#5fb878', width: 0.7, dash: [2, 3] } // intermedias (cada 1 °C)
+        };
+        const SHOW_LINES = { rh: true, h: true, twb: true };
+
+        function toggleFamily(fam, visible) {
+            SHOW_LINES[fam] = visible;
+            redraw();
+        }
+
+        // Busca T (en [a,b]) tal que f(T) = 0 por bisección (f monótona)
+        function bisectT(f, a, b) {
+            let fa = f(a);
+            if (fa * f(b) > 0) return null;
+            for (let i = 0; i < 50; i++) {
+                const m = (a + b) / 2, fm = f(m);
+                if (fa * fm <= 0) { b = m; } else { a = m; fa = fm; }
+            }
+            return (a + b) / 2;
+        }
+
+        // Geometría de las familias en coordenadas (T, w): polilíneas y etiquetas.
+        // La usan tanto el lienzo como la descarga SVG, para que ambos coincidan.
+        function buildLineFamilies() {
+            const fam = { sat: [], rh: [], h: [], hMinor: [], twb: [], twbMinor: [] };
+            const labels = [];
+            const poly = (fn, T0, T1, step) => {
+                const pts = [];
+                for (let T = T0; T <= T1 + 1e-9; T += step) {
+                    const w = fn(T);
+                    if (w >= W_MIN && w <= W_MAX) pts.push([T, w]);
+                }
+                return pts;
+            };
+
+            // Saturación (100 %)
+            fam.sat.push(poly(T => saturationHumidity(T), TEMP_MIN, TEMP_MAX, 0.25));
+
+            // HR 10–90 %: etiquetas en una columna a 25 °C, dentro del diagrama
+            const T_RH = 25;
+            for (let RH = 10; RH <= 90; RH += 10) {
+                fam.rh.push(poly(T => absoluteHumidity(T, RH), TEMP_MIN, TEMP_MAX, 0.5));
+                const w = absoluteHumidity(T_RH, RH);
+                if (w <= W_MAX - 0.5) labels.push({ fam: 'rh', text: RH + ' %', T: T_RH, w: w, dx: 4, dy: 4, align: 'left' });
+            }
+            const wSatLabel = saturationHumidity(T_RH);
+            if (wSatLabel <= W_MAX - 0.5) labels.push({ fam: 'sat', text: '100 %', T: T_RH, w: wSatLabel, dx: 4, dy: 10, align: 'left' });
+
+            // Entalpía: etiquetas cada 10 kJ/kg, a -5 °C o, si la línea sale por arriba, junto al borde superior
+            for (let h = 0; h <= 120; h += 5) {
+                fam[h % 10 === 0 ? 'h' : 'hMinor'].push(poly(T => absoluteHumidityFromEnthalpy(T, h), TEMP_MIN, TEMP_MAX, 0.5));
+                if (h > 0 && h % 10 === 0) {
+                    let T = TEMP_MIN + 5;
+                    let w = absoluteHumidityFromEnthalpy(T, h);
+                    if (w > W_MAX - 1) {
+                        T = bisectT(t => absoluteHumidityFromEnthalpy(t, h) - (W_MAX - 1), TEMP_MIN, TEMP_MAX);
+                        w = W_MAX - 1;
+                    }
+                    if (T !== null && T <= TEMP_MAX - 2 && w >= 0.5) {
+                        labels.push({ fam: 'h', text: 'h=' + h, T: T, w: w, dx: -4, dy: -3, align: 'right' });
+                    }
+                }
+            }
+
+            // Bulbo húmedo: nacen en la curva de saturación; etiquetas cada 5 °C en la propia curva
+            for (let Twb = 0; Twb <= 40; Twb += 1) {
+                fam[Twb % 5 === 0 ? 'twb' : 'twbMinor'].push(poly(T => absoluteHumidityFromWetBulb(T, Twb), Twb, TEMP_MAX, 0.5));
+                if (Twb > 0 && Twb % 5 === 0) {
+                    const w = saturationHumidity(Twb);
+                    if (w <= W_MAX - 0.5) labels.push({ fam: 'twb', text: 'Tbh=' + Twb + ' °C', T: Twb, w: w, dx: -5, dy: -4, align: 'right' });
+                }
+            }
+            return { fam, labels };
+        }
+
+        // Dibuja en el lienzo un texto con caja de fondo blanco
+        function drawLabelBox(text, x, y, color, align, size) {
+            ctx.font = size + 'px Arial';
+            const m = ctx.measureText(text).width;
+            const x0 = align === 'right' ? x - m : (align === 'center' ? x - m / 2 : x);
+            ctx.fillStyle = 'rgba(255,255,255,0.88)';
+            ctx.fillRect(x0 - 2, y - size + 1, m + 4, size + 3);
+            ctx.fillStyle = color;
+            ctx.textAlign = 'left';
+            ctx.fillText(text, x0, y);
+        }
+
         function drawGrid() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
@@ -1312,146 +1414,36 @@
                 ctx.fillText(w + ' g/kg', 88, y + 4);
             }
             
-            // Curva de saturación (100% HR)
-            ctx.strokeStyle = '#0000ff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            for (let T = TEMP_MIN; T <= TEMP_MAX; T += 0.5) {
-                const w_sat = saturationHumidity(T);
-                const x = tempToX(T);
-                const y = humToY(w_sat);
-                if (T === TEMP_MIN) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            }
-            ctx.stroke();
-            
-            // Líneas de humedad relativa constante
-            const RH_values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-            ctx.strokeStyle = '#0000ff';
-            ctx.lineWidth = 0.5;
-            ctx.setLineDash([5, 5]);
-            
-            for (const RH of RH_values) {
+            // ===== Familias de líneas (HR, entalpía, bulbo húmedo) y saturación =====
+            const LF = buildLineFamilies();
+            const strokePoly = (pts) => {
+                if (pts.length < 2) return;
                 ctx.beginPath();
-                let first = true;
-                for (let T = TEMP_MIN; T <= TEMP_MAX; T += 1) {
-                    const w = absoluteHumidity(T, RH);
-                    if (w <= W_MAX) {
-                        const x = tempToX(T);
-                        const y = humToY(w);
-                        if (first) {
-                            ctx.moveTo(x, y);
-                            first = false;
-                        } else {
-                            ctx.lineTo(x, y);
-                        }
-                    }
-                }
+                pts.forEach(([T, w], i) => {
+                    const x = tempToX(T), y = humToY(w);
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                });
                 ctx.stroke();
-                
-                // Etiquetas para TODAS las líneas de RH
-                // Buscar una temperatura adecuada donde la línea sea visible
-                let T_label = TEMP_MAX - 5;
-                let w_label = absoluteHumidity(T_label, RH);
-                
-                // Si la humedad absoluta excede el máximo, buscar una temperatura más baja
-                while (w_label > W_MAX && T_label > TEMP_MIN) {
-                    T_label -= 5;
-                    w_label = absoluteHumidity(T_label, RH);
-                }
-                
-                if (w_label <= W_MAX && T_label > TEMP_MIN) {
-                    const x_label = tempToX(T_label);
-                    const y_label = humToY(w_label);
-                    ctx.fillStyle = '#0000ff';
-                    ctx.font = '10px Arial';
-                    ctx.textAlign = 'left';
-                    ctx.fillText(RH + '%', x_label + 5, y_label);
-                }
+            };
+            const drawFamily = (key) => {
+                const st = LINE_STYLE[key];
+                ctx.strokeStyle = st.color;
+                ctx.lineWidth = st.width;
+                ctx.setLineDash(st.dash);
+                LF.fam[key].forEach(strokePoly);
+                ctx.setLineDash([]);
+            };
+            if (SHOW_LINES.h) { drawFamily('hMinor'); drawFamily('h'); }
+            if (SHOW_LINES.twb) { drawFamily('twbMinor'); drawFamily('twb'); }
+            if (SHOW_LINES.rh) drawFamily('rh');
+            drawFamily('sat');
+
+            // Etiquetas al final, con fondo blanco, del color de su familia
+            for (const L of LF.labels) {
+                if (L.fam !== 'sat' && !SHOW_LINES[L.fam]) continue;
+                const size = (L.fam === 'rh' || L.fam === 'sat') ? 11 : 10;
+                drawLabelBox(L.text, tempToX(L.T) + L.dx, humToY(L.w) + L.dy, LINE_STYLE[L.fam].color, L.align, size);
             }
-            ctx.setLineDash([]);
-            
-            // Líneas de entalpía constante
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 0.5;
-            ctx.setLineDash([]);
-            
-            for (let h = 0; h <= 120; h += 5) {
-                ctx.beginPath();
-                let first = true;
-                for (let T = TEMP_MIN; T <= TEMP_MAX; T += 1) {
-                    const w = absoluteHumidityFromEnthalpy(T, h);
-                    if (w >= 0 && w <= W_MAX) {
-                        const x = tempToX(T);
-                        const y = humToY(w);
-                        if (first) {
-                            ctx.moveTo(x, y);
-                            first = false;
-                        } else {
-                            ctx.lineTo(x, y);
-                        }
-                    }
-                }
-                ctx.stroke();
-                
-                // Etiquetas para entalpía
-                if (h > 0 && h % 10 === 0) {
-                    const T = TEMP_MIN + 5;
-                    const w = absoluteHumidityFromEnthalpy(T, h);
-                    if (w >= 0 && w <= W_MAX) {
-                        const x = tempToX(T);
-                        const y = humToY(w);
-                        ctx.fillStyle = '#ff6600';
-                        ctx.font = '9px Arial';
-                        ctx.textAlign = 'left';
-                        ctx.fillText('h=' + h, x - 30, y - 5);
-                    }
-                }
-            }
-            ctx.setLineDash([]);
-            
-            // Líneas de temperatura de bulbo húmedo constante
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 0.5;
-            ctx.setLineDash([2, 3]);
-            
-            for (let Twb = 0; Twb <= 40; Twb += 1) {
-                ctx.beginPath();
-                let first = true;
-                for (let T = Twb; T <= TEMP_MAX; T += 1) {
-                    const w = absoluteHumidityFromWetBulb(T, Twb);
-                    if (w >= 0 && w <= W_MAX) {
-                        const x = tempToX(T);
-                        const y = humToY(w);
-                        if (first) {
-                            ctx.moveTo(x, y);
-                            first = false;
-                        } else {
-                            ctx.lineTo(x, y);
-                        }
-                    }
-                }
-                ctx.stroke();
-                
-                // Etiquetas para Twb
-                if (Twb > 0 && Twb % 5 === 0) {
-                    const T = Twb + 10;
-                    if (T <= TEMP_MAX) {
-                        const w = absoluteHumidityFromWetBulb(T, Twb);
-                        if (w <= W_MAX) {
-                            const x = tempToX(T);
-                            const y = humToY(w);
-                            ctx.fillStyle = '#000000';
-                            ctx.font = '9px Arial';
-                            ctx.fillText('T_bh=' + Twb + '°C', x - 15, y + 10);
-                        }
-                    }
-                }
-            }
-            ctx.setLineDash([]);
             
             // Escala de presión de vapor (eje derecho)
             ctx.strokeStyle = '#666666';
@@ -1715,106 +1707,31 @@
                 svg += `    <text x="88" y="${y+4}" text-anchor="end" font-family="Arial" font-size="12" fill="#000000">${w} g/kg</text>\n`;
             }
             
-            // Líneas de humedad relativa constante
-            const RH_values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-            for (const RH of RH_values) {
-                let pathData = '';
-                let first = true;
-                for (let T = TEMP_MIN; T <= TEMP_MAX; T += 0.5) {
-                    const w = absoluteHumidity(T, RH);
-                    if (w <= W_MAX && w >= W_MIN) {
-                        const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
-                        const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
-                        if (first) {
-                            pathData += `M ${x} ${y} `;
-                            first = false;
-                        } else {
-                            pathData += `L ${x} ${y} `;
-                        }
-                    }
+            // ===== Familias de líneas (mismo estilo que en pantalla) =====
+            const LF = buildLineFamilies();
+            const sx = T => 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
+            const sy = w => height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
+            const svgFamily = (key) => {
+                const st = LINE_STYLE[key];
+                const dash = st.dash.length ? ` stroke-dasharray="${st.dash.join(',')}"` : '';
+                for (const pts of LF.fam[key]) {
+                    if (pts.length < 2) continue;
+                    const d = pts.map(([T, w], i) => (i === 0 ? 'M ' : 'L ') + sx(T).toFixed(2) + ' ' + sy(w).toFixed(2)).join(' ');
+                    svg += `    <path d="${d}" fill="none" stroke="${st.color}" stroke-width="${st.width}"${dash}/>\n`;
                 }
-                svg += `    <path d="${pathData}" fill="none" stroke="#0000ff" stroke-width="0.5" stroke-dasharray="5,5"/>\n`;
-                
-                // Etiquetas para HR
-                let T_label = TEMP_MAX - 5;
-                let w_label = absoluteHumidity(T_label, RH);
-                while (w_label > W_MAX && T_label > TEMP_MIN) {
-                    T_label -= 5;
-                    w_label = absoluteHumidity(T_label, RH);
-                }
-                if (w_label <= W_MAX && T_label > TEMP_MIN) {
-                    const x_label = 100 + ((T_label - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
-                    const y_label = height - 50 - ((w_label - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
-                    svg += `    <text x="${x_label+5}" y="${y_label}" font-family="Arial" font-size="10" fill="#0000ff">${RH}%</text>\n`;
-                }
-            }
-            
-            // Líneas de entalpía constante (negras continuas)
-            for (let h = 0; h <= 120; h += 5) {
-                let pathData = '';
-                let first = true;
-                for (let T = TEMP_MIN; T <= TEMP_MAX; T += 0.5) {
-                    const w = absoluteHumidityFromEnthalpy(T, h);
-                    if (w >= 0 && w <= W_MAX) {
-                        const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
-                        const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
-                        if (first) {
-                            pathData += `M ${x} ${y} `;
-                            first = false;
-                        } else {
-                            pathData += `L ${x} ${y} `;
-                        }
-                    }
-                }
-                if (pathData) {
-                    svg += `    <path d="${pathData}" fill="none" stroke="#000000" stroke-width="0.5"/>\n`;
-                    
-                    // Etiquetas para entalpía
-                    if (h > 0 && h % 10 === 0) {
-                        const T = TEMP_MIN + 5;
-                        const w = absoluteHumidityFromEnthalpy(T, h);
-                        if (w >= 0 && w <= W_MAX) {
-                            const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
-                            const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
-                            svg += `    <text x="${x-15}" y="${y+10}" font-family="Arial" font-size="9" fill="#000000">h=${h}</text>\n`;
-                        }
-                    }
-                }
-            }
-            
-            // Líneas de temperatura de bulbo húmedo (negras punteadas)
-            for (let Twb = 0; Twb <= 40; Twb += 1) {
-                let pathData = '';
-                let first = true;
-                for (let T = Twb; T <= TEMP_MAX; T += 0.5) {
-                    const w = absoluteHumidityFromWetBulb(T, Twb);
-                    if (w >= 0 && w <= W_MAX) {
-                        const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
-                        const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
-                        if (first) {
-                            pathData += `M ${x} ${y} `;
-                            first = false;
-                        } else {
-                            pathData += `L ${x} ${y} `;
-                        }
-                    }
-                }
-                if (pathData) {
-                    svg += `    <path d="${pathData}" fill="none" stroke="#000000" stroke-width="0.5" stroke-dasharray="2,3"/>\n`;
-                    
-                    // Etiquetas para Twb
-                    if (Twb > 0 && Twb % 5 === 0) {
-                        const T = Twb + 10;
-                        if (T <= TEMP_MAX) {
-                            const w = absoluteHumidityFromWetBulb(T, Twb);
-                            if (w <= W_MAX) {
-                                const x = 100 + ((T - TEMP_MIN) / (TEMP_MAX - TEMP_MIN)) * (width - 200);
-                                const y = height - 50 - ((w - W_MIN) / (W_MAX - W_MIN)) * (height - 100);
-                                svg += `    <text x="${x-15}" y="${y+10}" font-family="Arial" font-size="9" fill="#000000">T_bh=${Twb}°C</text>\n`;
-                            }
-                        }
-                    }
-                }
+            };
+            if (SHOW_LINES.h) { svgFamily('hMinor'); svgFamily('h'); }
+            if (SHOW_LINES.twb) { svgFamily('twbMinor'); svgFamily('twb'); }
+            if (SHOW_LINES.rh) svgFamily('rh');
+            svgFamily('sat');
+            for (const L of LF.labels) {
+                if (L.fam !== 'sat' && !SHOW_LINES[L.fam]) continue;
+                const size = (L.fam === 'rh' || L.fam === 'sat') ? 11 : 10;
+                const tw = L.text.length * size * 0.56;
+                const x = sx(L.T) + L.dx, y = sy(L.w) + L.dy;
+                const x0 = L.align === 'right' ? x - tw : x;
+                svg += `    <rect x="${(x0 - 2).toFixed(1)}" y="${(y - size + 1).toFixed(1)}" width="${(tw + 4).toFixed(1)}" height="${size + 3}" fill="#ffffff" fill-opacity="0.88"/>\n`;
+                svg += `    <text x="${x0.toFixed(1)}" y="${y.toFixed(1)}" font-family="Arial" font-size="${size}" fill="${LINE_STYLE[L.fam].color}">${L.text}</text>\n`;
             }
             
             // Etiquetas de los ejes
